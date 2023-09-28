@@ -6,14 +6,14 @@ about:
   links:
     - icon: twitter
       text: Twitter
-      href: https://twitter.com
+      href: https://twitter.com/@alunapr
     - icon: linkedin
       text: LinkedIn
-      href: https://linkedin.com
+      href: https://www.linkedin.com/in/alun-ap-rhisiart-3584291
     - icon: github
       text: Github
-      href: https://github.com
+      href: https://github.com/alunap
 
 ---
 
-About this blog
+A meandering through data science and engineering adventures in Julia, Python, and R.

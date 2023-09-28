@@ -1,0 +1,157 @@
+---
+title: "Dealing with multi-class ML data"
+author: "Dr Alun ap Rhisiart"
+date: "2023-09-20"
+categories: [code, julia, ml, data cleaning, data engineering]
+---
+
+## Introduction
+
+For the purpose of child safeguarding, one thing I do is build NLP models that classify texts according to certain risk categories (eating disorders, suicide ideation, drugs, gambling, etc). For this purpose I needed to take text data that was captured (either written or viewed) and have an external annotation company label the texts for me. This was meant to be via Amazon Ground Truth, but because of some issues with the setup at the time I ended up dealing directly with the annotation company. 
+
+## The data
+The data came back in two spreadsheets. Each sentence had been checked by three separate annotators, and the ones where everybody agreed on the classifications went into a 'consensus' spreadsheet; where there was disagreement it appears a forth person (a supervisor) checked and decided which classifications should stand, and this data came in a 'noconsensus' spreadsheet. Note the plural: I asked them to assign all applicable classifications to a text, not just the primary one. A sentence could be about both 'mental health' and 'drug use', for example. I did a spot check of a good number of the 40,000 sentences, and was very pleased with the accuracy of the result (which is to say, I agreed with their decisions). Nonetheless, there were some data engineering challenges to get the data into a suitable format (there always are!).
+
+## Eyeballing the data
+The data was of of the form
+
+| id | data_x | label1 | label2 | label3 | Final Label |
+|----|--------|--------|--------|--------|-------------|
+| 1  |"Sample text" | ['negative'] | ['drugs'] | ['drugs', 'mental health'] | ['drugs'] |
+| 2  | "another sample" | ['drugs'] | ['suicide'] | ['drugs'] | ['drugs'] |
+
+The label columns were in the form of a string such as:
+
+['suicide', 'mental health', 'self-harm']
+
+This may look like an array of strings, but it was actually just a single string starting and ending with a square bracket. This would need to be parsed and the strings converted to integer labels.
+
+The first thing I found is that there are some inconsistencies in the labels field. For example:
+ 
+- typos such as 'suicide' vs 'sucide'
+- differences in case ('Weapon' vs 'weapon')
+- some were plural, some were singular ('weapon' vs 'weapons')
+- and we had both 'self-harm' and 'self harm' and 'Games' vs 'Games.' (a tricky one this because of the next issue)
+- sometimes the separator was a period instead of a comma
+- The column names were not valid Julia dataframe column identifiers, for example 'Final Label'.
+- In some cases there was an extra bracket in the list of labels, ['label1', 'label2', 'label3']] (this one was rare, so it was cleaned up in Excel and rexported to csv).
+- Some of the labels had missing quotes, ['label1', 'label2, label3']
+
+
+## Loading and separating the data
+
+First load it, dealing with the column names in the process. I used DrWatson to set up by Julia projects.
+```{{julia}}
+using DrWatson
+quickactivate(@__DIR__)
+using CSV, StatsBase, DataFramesMeta, Parquet, Random, JSONTables
+
+consensus = CSV.read(datadir("import", "consensus.csv"), header=1, ignoreemptyrows=true, normalizenames=true, DataFrame)
+nonconsensus = CSV.read(datadir("import", "noconsensus.csv"), header=1, ignoreemptyrows=true, normalizenames=true, DataFrame)
+
+df = vcat(consensus, nonconsensus)
+```
+
+## Single label classifier
+Now we have have it all in one datafame, the next step is to extract the texts that are associated with a classification. In this case, only 7% of the texts were associoted with more than one classification, and we are not sure whether a multi-class model is needed at all. This is actually quite simple in Julia:
+```{{julia}}
+negatives = filter(rows -> occursin.("negative", lowercase(rows.Final_Label)), df)
+self_harm = filter(rows -> occursin.("self", lowercase(rows.Final_Label)), df)
+```
+and so on for all the categories. Here we don't have to worry about issues like singular or plural, or what separators are used. The final list is going to be a bit more than the original count, since there are some texts that belong to more than one classification.
+```{{julia}}
+total = nrow(negatives) + nrow(self_harm) # +...etc
+```
+
+#### Adding back the labels
+We have the texts separated, now we want to add an integer label rather than the text label. While we are at it, drop any unnecessary columns and rename 'data_x' to 'text'.
+
+```{{julia}}
+function setlabels(df, label)
+  data = select(df, :id, :data_x => :text)
+  data[!, :label] .= label
+  return data
+end
+
+negatives = setlabels(negatives, 0)
+self_harm = setlabels(self_harm, 4)
+# and so on for all of them
+all_texts = vcat(negatives, self_harm, ) # etc for all the classes
+```
+#### Write out the single-classification data
+Now we can export, and I do this both for CSV and parquet.
+```{{julia}}
+CSV.write(datadir("exp_pro", "all_texts.csv"), all_texts, header=true, append=false)
+write_parquet(datadir("exp_pro", "all_texts.parquet"), all_texts)
+```
+#### Build the model and examine
+The model (or actually a number of scikit-learn models) were built in python, which I could use PythonCall for, but let's skip that part. This is about handling data, not building models.
+What I found is that the accuracy was very poor for self-harm, because there were far fewer instances in the dataset. I decided to remove this classification for now, and build a model without it. This is straightforward. In addition, there was a large imbalance between negatives and all the positive classifications, which means that the balanced accuracy score was significantly lower than the overall accuracy score. I decided to downsample the negatives to bring the numbers roughly in line with the others.
+
+```{{julia}}
+negs = negatives[sample(1:nrow(negatives), 5_700, replace=false), :]
+reduced_texts = vcat(negs, eating_disorders, ) # etc
+```
+And write out the files once more. 
+
+#### Split into train/validation/test sets
+This worked well for scikit-learn models. I also wanted to build a Distilbert model using hugging-face transformers. Scikit-learn has a nice feature to split test-train, but hugging face apparently does not, so I needed to split beforehand. In addition, I split the training set into a train/validation set, again something that scikit-learn does for us.
+```{{julia}}
+shuffled_df = Dataframe(shuffle(eachrow(reduced_texts)))
+train_size = Int(round(nrow(shuffled_df) * 0.8))
+mh_train = shuffled_df[1:train_size, :]
+mh_test = shuffled_df[train_size + 1:end, :]
+
+valid_size = Int(round(nrow(mh_train) * 0.85))
+valid_df = mh_train[valid_size + 1:end, :]
+mh_train = mh_train[1:valid_size, :]
+```
+
+These dataframes were then written out, loaded onto Databricks, and a Distilbert model built.
+
+## Multi-label classifier
+We have data that has multiple labels associated with the same text where appropriate. There were nothing like as many as I was expecting, but worth seeing whether building a one-vs-rest model that took account of all the labels would do a good job. This is not so straightforward, however, because now we have to parse each part of the label, taking account of inconsistencies like missing quotes, periods inside the label, etc, and convert the strings to integers.
+
+The first thing is to take account of the inconsistent names ('weapons' vs 'weapon', 'self-harm' vs 'self harm', etc). I did this by making a dictionary mapping the strings to integers, and simply added extra items for variants, mapping to the same integers.
+```{{julia}}
+policy_names = Dict(
+  "negative" == 0,
+  "eating disorder" == 1,
+  "suicide" == 2,
+  "sucide" == 2 # and so on for all the classifications and all the variants
+  ) 
+```
+Given a string such as "['class1', 'class3'...]" We can extract each policy name, strip extra characters, look up the label numbers, and return an array of integers. Optionally exclude any policies we don't want at this time (eg self-harm).
+
+```{{julia}}
+function findepolicy(str, exclusions=[])
+  isdelim(char) = char == '.' || char == ','
+  splits = split(str, isdelim)
+  items = map(x -> strip(x, [ '[', ']', ' ', ''', '"', '.' ]), splits)
+  result = map(item -> policy_names(lowercase(item)), items)
+  return setdiff!result, exclusions)
+end
+
+coded_df = @chain df begin
+  @rtransform(:labels = findpolicy(:Final_Label))
+  select(:id, :data_x => :text, :labels)
+end
+```
+To load it into pandas. I converted to JSON. W ecan use JSONTables for this
+```{{julia}}
+jsonstring = arraytable(coded_df)
+open(datadir("exp_pro", "multiclass_captures_texts.json"), "w") do f
+  write(f, jsonstring)
+end
+```
+
+Finally, I made a reduced version of the multiclass to exclude self-harm. One addition here is that we need to guard against cases where self-harm is the only label for a string.
+```{{julia}}
+reduced_df = @chain df begin
+  @rtransform(:labels = findpolicy(:Final_Label, [4]))
+  select(:id, :data_x => :text, :labels)
+  @rsubset(:labels != [])
+end
+```
+
+And that's it! As always, I was impressed by the power of Julia dataframes and macros to do a great deal in very few lines, and run fast. I practice, I use whatever language seems to best suit the task at hand, whether that be Python, R, Julia, or SQL. My favourite is Julia, but that isn't available on Databricks. For statistics (including Bayesian models) I generally prefer R, and I also like the geocomputing setup on R. All three are good at graphics, although some have facilities that others don't, but most of the time I will use ggplot2 in R or Makie in Julia, but Seaborn is also fine, and I like Folium. Python still leads the pack on ML libraries, with both scikit-learn and huggingface being indispensible.

@@ -1,12 +1,8 @@
 ---
-title: "Welcome To My Blog"
-author: "Tristan O'Malley"
+title: "Welcome To The Wanderings Blog"
+author: "Alun ap Rhisiart"
 date: "2023-09-17"
-categories: [news]
+categories: [new]
 ---
 
-This is the first post in a Quarto blog. Welcome!
-
-![](thumbnail.jpg)
-
-Since this post doesn't specify an explicit `image`, the first image in the post will be used in the listing page of posts.
+In my work, I use a variety of languages, principally SQL, Julia, Python, and R, and a variety of tools, such as Databricks, dbt, Prefect, Jupyter Lab, VS Code, RStudio, and more. There are always problems to solve, and here I'll blog about some problems that were overcome, and some techniques to help us on our way. Maybe it will be of use to someone apart from myself.
