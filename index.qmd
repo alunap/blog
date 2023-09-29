@@ -1,5 +1,5 @@
 ---
-title: "blog"
+title: "A Walk on the Wild Side"
 listing:
   contents: posts
   sort: "date desc"

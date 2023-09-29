@@ -1,5 +1,5 @@
 ---
-title: "Welcome To The Wanderings Blog"
+title: "A Walk on the Wild Side"
 author: "Alun ap Rhisiart"
 date: "2023-09-17"
 categories: [new]

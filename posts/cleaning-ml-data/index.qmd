@@ -137,7 +137,7 @@ coded_df = @chain df begin
   select(:id, :data_x => :text, :labels)
 end
 ```
-To load it into pandas. I converted to JSON. W ecan use JSONTables for this
+To load it into pandas. I converted to JSON. We can use JSONTables for this
 ```{{julia}}
 jsonstring = arraytable(coded_df)
 open(datadir("exp_pro", "multiclass_captures_texts.json"), "w") do f
