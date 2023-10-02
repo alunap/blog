@@ -85,7 +85,7 @@ CSV.write(datadir("exp_pro", "all_texts.csv"), all_texts, header=true, append=fa
 write_parquet(datadir("exp_pro", "all_texts.parquet"), all_texts)
 ```
 #### Build the model and examine
-The model (or actually a number of scikit-learn models) were built in python, which I could use PythonCall for, but let's skip that part. This is about handling data, not building models.
+The model (or actually a number of scikit-learn models) were built in python, for which I could use PythonCall, but let's skip that part. This is about handling data, not building models.
 What I found is that the accuracy was very poor for self-harm, because there were far fewer instances in the dataset. I decided to remove this classification for now, and build a model without it. This is straightforward. In addition, there was a large imbalance between negatives and all the positive classifications, which means that the balanced accuracy score was significantly lower than the overall accuracy score. I decided to downsample the negatives to bring the numbers roughly in line with the others.
 
 ```{{julia}}
@@ -154,4 +154,4 @@ reduced_df = @chain df begin
 end
 ```
 
-And that's it! As always, I was impressed by the power of Julia dataframes and macros to do a great deal in very few lines, and run fast. I practice, I use whatever language seems to best suit the task at hand, whether that be Python, R, Julia, or SQL. My favourite is Julia, but that isn't available on Databricks. For statistics (including Bayesian models) I generally prefer R, and I also like the geocomputing setup on R. All three are good at graphics, although some have facilities that others don't, but most of the time I will use ggplot2 in R or Makie in Julia, but Seaborn is also fine, and I like Folium. Python still leads the pack on ML libraries, with both scikit-learn and huggingface being indispensible.
+And that's it! As always, I was impressed by the power of Julia dataframes and macros to do a great deal in very few lines, and it runs fast. In practice, I use whatever language seems to best suit the task at hand, whether that be Python, R, Julia, or SQL. My favourite is Julia, but that isn't available on Databricks. For statistics (including Bayesian models) I generally prefer R, and I also like the geocomputing setup on R. All three are good at graphics, although some have facilities that others don't, but most of the time I will use ggplot2 in R or Makie in Julia, but Seaborn is also fine, and I like Folium. Python still leads the pack on ML libraries, with both scikit-learn and huggingface being indispensible.
