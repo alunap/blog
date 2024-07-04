@@ -3,7 +3,7 @@ title: "Stratified train-test-split"
 author: "Dr Alun ap Rhisiart"
 date: "2024-07-04"
 categories: [code, Julia, data cleaning, data engineering]
-draft: true
+draft: false
 ---
 
 # A stratified train-test-split function
