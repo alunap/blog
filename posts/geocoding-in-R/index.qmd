@@ -1,0 +1,124 @@
+---
+title: "Geocoding in R"
+author: "Dr Alun ap Rhisiart"
+date: "2023-10-02"
+categories: [code, R, Geocomputing, data cleaning, data engineering]
+draft: true
+---
+
+## Sources of School Information
+
+Public information about schools varies tremendously between countries. For English schools I get information from Edubase and the ONS. For the United States, there is a wealth of information availble, from the [National Center for Education Statistics](https://nces.ed.gov) (NCES) and Department for Education, as well as other sources, such as the [Youth Risk Behavior Survey](https://yrbs-explorer.services.cdc.gov/#/).
+
+I like to get the geographical location for the entities so that I can plot them, create choropleths, and derive relevant information from the area (unemployment rate, income-poverty rate, median house price, number of single-parent families, etc). For NCES this is straightforward because the schools data includes the latitude and longitude. English Edubase data includes the location, too, but it is in OS Grid reference coordinates. The task here is to convert grid references to WGS84 latitude and longitude.
+
+First, load the required libraries.
+
+```{r}
+library(tidyverse)
+library(ggmap)
+library(sf)
+library(janitor)
+library(lubridate)
+library(here)
+```
+
+## Downloading English School Data
+
+The government provides information about English schools (note: not Scottish or NI schools, and limited information on Welsh schools) at [Get Information About Schools](https://get-information-schools.service.gov.uk/Search?SelectedTab=Establishments) (GIAS). You can select a particular school, or download for all establishments. A disadvantage of this service is that you have to select the data you want from a list, which means each time you do it you could end up with a different selection of data. We want to have the same ingestion routine handle it each time, so instead I download the file from edubase. The problem here is that there is no publicly viewable URL you can go to, so you have to guess the name of the file. Fortunately, the naming convention is pretty easy to guess. It is the date of the last weekday in a month. Let's get all information for September 2023.
+
+```{r}
+url = 'https://ea-edubase-api-prod.azurewebsites.net/edubase/downloads/public/edubasealldata20230929.csv'
+file_name = here::here("posts", "geocoding-in-R", "data", "edubase20230929.csv")
+
+download.file(url = url, 
+              destfile = file_name,
+              mode = "wb")
+```
+### Clean the data
+
+Here we are just looking at UK data, but I also deal with data from other countries, and the names and available data are different. It makes sense to me to make data that is available in different regions should have the same names. That way a core set of SQL statements will work everywhere. In the UK, there are columns marked '(code)' and matching columns marked '(name)'. I will drop the 'code' versions and rename the 'name' versions to leave out the '(name)' part.
+```{r}
+gov <- read_csv(file_name, show_col_types = FALSE)
+lookup <- c(name = "EstablishmentName (name)",
+            lea_code = "LA (code)",
+            lea_name = "LA (name)",
+            maxAge = "StatutoryHighAge",
+            minAge = "StatutoryLowAge",
+            totalStudents = "NumberOfPupils",
+            totalFemale = "NumberOfGirls",
+            totalMale = "NumberOfBoys",
+            percentFM = "PercentageFSM",
+            address1 = "Street",
+            address2 = "Locality",
+            locale = "UrbanRural (code)"
+            )
+gov$URN <- as.character(gov$URN)
+gov <- gov %>%
+  rename(any_of(lookup)) %>%
+  select(!ends_with("(code)")) %>%
+  rename_with(function(x) gsub(" \\(name.*", "", x)) %>%
+  clean_names()
+```
+## Coordinate Conversion
+
+Now we can convert OS Grid Refs to WGS84. This could also be done in Python with GeoPandas etc, but I do like the SF library in R for this. The only issue is that it needs the proj and GDAL libraries to be installed, which is not always straightforward. OS Grid Refs are CRS27700, and WGS84 coordinates are CRS4236. But before we do the coordinate, we need to check in case there are any entries that are missing the Easting and Northing values. It turns out there are 1651 entries missing. sf knows about *data.frame*s not *tibble*s so we convert to that, then get the new coordinates, and finally add them back to the original tibble.
+```{r}
+gov.no_location <- gov |> filter(is.na(easting)) 
+gov <- gov %>%
+  filter(!is.na(easting))
+
+coords <- as.data.frame(gov) %>%
+  st_as_sf(coords = c("easting", "northing"), crs = 27700) %>%
+  st_transform(4326) %>%
+  st_coordinates() %>%
+  as_tibble()
+names(coords) <- c('longitude', 'latitude')
+official_data <- bind_cols(gov, coords)
+```
+
+### Save Geocoded Data
+
+Save at this point to upload to Databricks.
+```{r}
+write_parquet(official_data, here::here("posts", "geocoding-in-R", "data", "official_data.parquet"))
+```
+
+## Plot the Schools
+
+Since we have coordinates, why not plot them to see where the schools are? The bounding box has to be worked out by trial and error. Now we can see that we are dealing with schools in England, but Edubase does not have information on Scottish or Northern Irish schools, and little on Welsh schools, which wasn't obvious before this step.
+```{r}
+#| warning: false
+
+bb <- c(left = -8, bottom = 49.80, right = 3, top = 59.50)
+map_toner <- get_stamenmap(bb, zoom = 8, maptype = "toner-lite")
+
+COLOUR_MUTED_BLUE <- "#1f77b4"
+COLOUR_SAFETY_ORANGE <- "#ff7f0e"
+
+theme_map <- function(plot) {
+  plot +
+    coord_map() +
+    scale_x_continuous(expand = expansion(0, 0)) +
+    scale_y_continuous(expand = expansion(0, 0)) +
+    theme(
+      legend.position = "none",
+      axis.title = element_blank(),
+      axis.text = element_blank(),
+      axis.ticks = element_blank(),
+      text = element_text(size = 12)
+    )
+}
+
+map <- ggmap(map_toner, extent = "normal") +
+  geom_point(
+    data = official_data,
+    aes(x = longitude, y = latitude),
+    size = 1,
+    alpha = 0.5,
+    col = COLOUR_MUTED_BLUE
+  )
+map <- theme_map(map)
+
+plot(map)
+```

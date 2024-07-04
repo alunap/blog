@@ -10,7 +10,7 @@ categories: [code, julia, ml, data cleaning, data engineering]
 For the purpose of child safeguarding, one thing I do is build NLP models that classify texts according to certain risk categories (eating disorders, suicide ideation, drugs, gambling, etc). For this purpose I needed to take text data that was captured (either written or viewed) and have an external annotation company label the texts for me. This was meant to be via Amazon Ground Truth, but because of some issues with the setup at the time I ended up dealing directly with the annotation company. 
 
 ## The data
-The data came back in two spreadsheets. Each sentence had been checked by three separate annotators, and the ones where everybody agreed on the classifications went into a 'consensus' spreadsheet; where there was disagreement it appears a forth person (a supervisor) checked and decided which classifications should stand, and this data came in a 'noconsensus' spreadsheet. Note the plural: I asked them to assign all applicable classifications to a text, not just the primary one. A sentence could be about both 'mental health' and 'drug use', for example. I did a spot check of a good number of the 40,000 sentences, and was very pleased with the accuracy of the result (which is to say, I agreed with their decisions). Nonetheless, there were some data engineering challenges to get the data into a suitable format (there always are!).
+The data came back in two spreadsheets. Each sentence had been checked by three separate annotators, and the ones where everybody agreed on the classifications went into a 'consensus' spreadsheet; where there was disagreement it appears a fourth person (a supervisor) checked and decided which classifications should stand, and this data came in a 'noconsensus' spreadsheet. Note the plural: I asked them to assign all applicable classifications to a text, not just the primary one. A sentence could be about both 'mental health' and 'drug use', for example. I did a spot check of a good number of the 40,000 sentences, and was very pleased with the accuracy of the result (which is to say, I agreed with their decisions). Nonetheless, there were some data engineering challenges to get the data into a suitable format (there always are!).
 
 ## Eyeballing the data
 The data was of of the form
@@ -22,7 +22,7 @@ The data was of of the form
 
 The label columns were in the form of a string such as:
 
-['suicide', 'mental health', 'self-harm']
+`['suicide', 'mental health', 'self-harm']`
 
 This may look like an array of strings, but it was actually just a single string starting and ending with a square bracket. This would need to be parsed and the strings converted to integer labels.
 
@@ -33,14 +33,14 @@ The first thing I found is that there are some inconsistencies in the labels fie
 - some were plural, some were singular ('weapon' vs 'weapons')
 - and we had both 'self-harm' and 'self harm' and 'Games' vs 'Games.' (a tricky one this because of the next issue)
 - sometimes the separator was a period instead of a comma
-- The column names were not valid Julia dataframe column identifiers, for example 'Final Label'.
-- In some cases there was an extra bracket in the list of labels, ['label1', 'label2', 'label3']] (this one was rare, so it was cleaned up in Excel and rexported to csv).
-- Some of the labels had missing quotes, ['label1', 'label2, label3']
+- The column names were not valid Julia dataframe column identifiers, for example `Final Label`.
+- In some cases there was an extra bracket in the list of labels, `['label1', 'label2', 'label3']]` (this one was rare, so it was cleaned up in Excel and rexported to csv).
+- Some of the labels had missing quotes, `['label1', 'label2, label3']`
 
 
 ## Loading and separating the data
 
-First load it, dealing with the column names in the process. I used DrWatson to set up by Julia projects.
+First load it, dealing with the column names in the process. I used DrWatson to set up my Julia projects.
 ```{{julia}}
 using DrWatson
 quickactivate(@__DIR__)
@@ -53,12 +53,12 @@ df = vcat(consensus, nonconsensus)
 ```
 
 ## Single label classifier
-Now we have have it all in one datafame, the next step is to extract the texts that are associated with a classification. In this case, only 7% of the texts were associoted with more than one classification, and we are not sure whether a multi-class model is needed at all. This is actually quite simple in Julia:
+Now we have have it all in one datafame, the next step is to extract the texts that are associated with a classification. This is actually quite simple in Julia:
 ```{{julia}}
 negatives = filter(rows -> occursin.("negative", lowercase(rows.Final_Label)), df)
 self_harm = filter(rows -> occursin.("self", lowercase(rows.Final_Label)), df)
 ```
-and so on for all the categories. Here we don't have to worry about issues like singular or plural, or what separators are used. The final list is going to be a bit more than the original count, since there are some texts that belong to more than one classification.
+and so on for all the categories. Here we don't have to worry about issues like singular or plural, or what separators are used. The final list is going to be a bit more than the original count, since there are some texts that belong to more than one classification. In this case, only 7% of the texts were associoted with more than one classification, and we are not sure whether a multi-class model is needed at all.
 ```{{julia}}
 total = nrow(negatives) + nrow(self_harm) # +...etc
 ```
@@ -95,7 +95,7 @@ reduced_texts = vcat(negs, eating_disorders, ) # etc
 And write out the files once more. 
 
 #### Split into train/validation/test sets
-This worked well for scikit-learn models. I also wanted to build a Distilbert model using hugging-face transformers. Scikit-learn has a nice feature to split test-train, but hugging face apparently does not, so I needed to split beforehand. In addition, I split the training set into a train/validation set, again something that scikit-learn does for us.
+This worked well for scikit-learn models. I also wanted to build a Distilbert model using hugging-face transformers. Scikit-learn has a nice feature to split test-train and then uses cross-validation, but hugging face apparently does not. I split the training set into a train/validation set.
 ```{{julia}}
 shuffled_df = Dataframe(shuffle(eachrow(reduced_texts)))
 train_size = Int(round(nrow(shuffled_df) * 0.8))

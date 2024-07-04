@@ -13,5 +13,11 @@
   },
   "posts/cleaning-ml-data/index.qmd": {
     "index.html": "25224cb8"
+  },
+  "posts/geocoding-in-R/index.qmd": {
+    "index.html": "28ed605a"
+  },
+  "Pandas_for_DS.ipynb": {
+    "Pandas_for_DS.html": "b5092478"
   }
 }
