@@ -1,0 +1,297 @@
+---
+title: "Building LoRA Models"
+author: "Dr Alun ap Rhisiart"
+date: "2024-07310"
+categories: [code, ml, huggingface]
+---
+
+## Introduction
+Since 2021 LoRA methods and derivatives (such as QLora, IA3, etc) have become more common. Fine-tuning a BERT or decoder model, even though much better than training from scratch, still takes quite a bit of resources. Instead, these techniques leave the original weights and biases alone, and instead attach adaptor matrices to some of the hidden layers. We then just train these adaptors, which are much smaller than the original layers. In my case, it was 0.5% of the size. These methods can be as good on large datasets, and even better (comparatively) on smaller datasets.
+
+::: {.callout-note}
+With the development of LLMs, such as GPT-4, Claude, and Llama, there is the possibility of using prompt-engineering to get these models to output classifications, even though they were not trained to do so. I used this process myself using Llama Guard to find suitable training data to input into this process (some data had been annotated by an external company, but some categories had insufficient numbers, and the capture process produces a large percentage of false positives). The ability to use LLMs and prompt engineering for zero-shot and few-shot classification is a valuable advance, but I don't think it replaces training a real classifier. I say this for two reasons:
+
+1. Tests have shown that using such models for zero-shot is not very accurate. A small number of examples in the prompt increases this remarkably, but if you have many classifications you run into issues with prompt length. See <https://www.striveworks.com/blog/unsupervised-text-classification-how-to-use-llms-to-categorize-natural-language-data> for how zero-shot performed poorly, but improved dramatically if you can provide 23 examples per category.
+2. Even if the accuracy is acceptable, as I will discuss at the end, LLMs are very large and resource-intensive. It is possible to achieve the same level of accuracy or better with much smaller models that require no GPU for inference and much lower latency.
+:::
+
+In this first post, I will go through using LoRA (with some additions) methods to fine-tune a 'roberta-large' model on a sequence classification task with 12 labels. A follow-up post will consider how we take this model and make it suitable for deployment in production.
+
+Although there is a lot of documentation of <https://huggingface.co> it was still a bit confusing at times, since they would switch in their examples from CausalLM models to image classification models, sometimes using the trainer class, sometimes raw PyTorch, and so on. So I will document what I did here. I will also incorporate this into MLFlow running on DataBricks.
+
+We will be training a RoBERTA model using LoRA. See Hu, Edward J., Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, Lu Wang, and Weizhu Chen. LoRA: Low-Rank Adaptation of Large Language Models. arXiv, 16 October 2021. <https://doi.org/10.48550/arXiv.2106.09685>
+
+We also follow the OLORA algorithm for initialisng the LoRA weights, as detailed in Büyükakyüz, Kerim (2024). OLoRA: Orthonormal Low-Rank Adaptation of Large Language Models. <http://arxiv.org/abs/2406.01775>
+
+In addition, we use the rank-stabilised scaling factor algorithm to improve performance while training. See Kalajdzievski, Damjan (2023). A Rank Stabilization Scaling Factor for Fine-Tuning with LoRA. <https://arxiv.org/abs/2312.03732>
+
+## Databricks cluster setup
+First load our libraries.
+```python
+import pyspark
+from pyspark.sql import SparkSession
+import pandas as pd
+import numpy as np
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
+from datasets import load_dataset
+from torch.utils.data import DataLoader
+import torch
+import mlflow
+from peft import (
+    get_peft_config,
+    get_peft_model,
+    LoraConfig,
+    PeftType,
+    PeftModel
+)
+import evaluate 
+from tqdm.notebook import tqdm
+spark = SparkSession.builder.master("local[1]").appName("PEFT").config("spark.task.cpus", "4").getOrCreate()
+```
+## Log in to HuggingFace
+I have a lot of trouble getting the huggingface notebook login to work, so I use the CLI instead. Using databricks widgets means I can save the value but it doesn't become part of the notebook code. This assumes, of course, that you have created an account on HuggingFace and obtained an API token.
+
+```python
+dbutils.widgets.text("huggingface_token", "", "huggingface_token")
+huggingface_token = dbutils.widgets.get("huggingface_token")
+!huggingface-cli login --token $huggingface_token
+```
+## Set up Datasets
+In this case the datasets have already been separated into train/validation/test datasets and saved into separate parquet file. See the stratified-train-test-split blog for how I did that.
+
+```python
+data_files = {"train": "/dbfs/FileStore/captures/2024/train.parquet", 
+              "validation": "/dbfs/FileStore/captures/2024/valid.parquet",
+              "test": "/dbfs/FileStore/captures/2024/test.parquet"}
+ds = load_dataset("parquet", data_files=data_files)
+
+print(ds)
+```
+This yields
+
+| DatasetDict({
+|    train: Dataset({
+|        features: ['text', 'label'],
+|        num_rows: 24642
+|    })
+|    validation: Dataset({
+|        features: ['text', 'label'],
+|        num_rows: 4350
+|    })
+|    test: Dataset({
+|        features: ['text', 'label'],
+|        num_rows: 7249
+|    })
+| })
+`
+
+Now we can collect the labels.
+```python
+unique_labels = set(ds["train"]["label"])
+num_labels = len(unique_labels)
+```
+
+## Set up PEFT model config
+In this case we want a LoRA adapting a RoBERTa large base model.
+
+```python
+batch_size = 10
+checkpoint = "roberta-large"
+peft_type = PeftType.LORA
+num_epochs = 10
+
+labels = ["negative", "Eating disorders", "Suicide", "Mental health", "Self-harm", "Drugs", "Gambling", "Weapons", "Games", "Criminality", "Sexual content", "Bullying"]
+label2id, id2label = dict(), dict()
+for i, label in enumerate(labels):
+    label2id[label] = i
+    id2label[i] = label
+    
+peft_config = LoraConfig(task_type="SEQ_CLS", 
+                         inference_mode=False, 
+                         r=8, 
+                         lora_alpha=16, 
+                         lora_dropout=0.1,
+                         use_rslora=True,
+                         init_lora_weights="olora",
+                         bias="none")
+lr = 3e-4
+```
+
+### Load the base model
+Now we load the Roberta model specifying the number of labels for the new head. The huggingface example notebook doesn't specify num_labels, and it turns out that if you don't then the new head will have two nodes.
+
+```python
+model = AutoModelForSequenceClassification.from_pretrained(checkpoint, 
+                                                           label2id=label2id, 
+                                                           id2label=id2label, 
+                                                           num_labels = num_labels, 
+                                                           device_map="auto")
+```
+
+### Load the PEFT adaptors
+```python
+lora_model = get_peft_model(model, peft_config)
+lora_model.print_trainable_parameters()
+lora_model
+```
+This tells me that we have 1,848,332 trainable parameters out of a total of 357,220,376, or 0.5174%. This is the value of PEFT methods: fine-tuning of large models becomes feasible as we are actually updating a very small % of the total.
+
+## Prepare evaluation metric
+In this case we will simply use accuracy, but we could optimize f1, recall, precision, or something else if we preferred.
+
+```python
+metric = evaluate.load("accuracy")
+
+def compute_metrics(eval_pred):
+    """Computes accuracy on a batch of predictions."""
+    predictions = np.argmax(eval_pred.predictions, axis=1)
+    return metric.compute(predictions=predictions, references=eval_pred.label_ids)
+```
+
+## Set up tokenizer
+The tokenizer needs to be the one appropriate to the base model.
+
+```python
+tokenizer = AutoTokenizer.from_pretrained(checkpoint, padding_side="right")
+if getattr(tokenizer, "pad_token_id") is None:
+    tokenizer.pad_token_id = tokenizer.eos_token_id
+    
+text_column = "text"
+label_column = "label"
+def preprocess_function(examples):
+    inputs = examples[text_column]
+    targets = examples[label_column]
+    model_inputs = tokenizer(inputs, max_length=None, truncation=True)
+    model_inputs["labels"] = targets
+    return model_inputs
+```
+
+## Set up a data collator
+Now we need a data collator and to process the dataset with the tokenizer. One thing that initially confused me was that as we pass the tokenizer to the data collator, do we still run the tokenizer, or will the data collator do this for us during the training run? The answer is that we still need to tokenize; the data collator needs to know the tokenizer only so that it knows how to pad the tokens for each batch.
+
+```python
+from transformers import DataCollatorWithPadding
+data_collator = DataCollatorWithPadding(tokenizer)
+
+processed_ds = ds.map(
+    preprocess_function,
+    num_proc=1,
+    remove_columns=ds["train"].column_names,
+    desc="Running tokenizer on dataset"
+)
+print(processed_ds)
+processed_ds.set_format("torch")
+```
+
+This prints out
+
+| DatasetDict({
+|    train: Dataset({
+|        features: ['input_ids', 'attention_mask', 'labels'],
+|        num_rows: 24642
+|    })
+|    validation: Dataset({
+|        features: ['input_ids', 'attention_mask', 'labels'],
+|        num_rows: 4350
+|    })
+|    test: Dataset({
+|        features: ['input_ids', 'attention_mask', 'labels'],
+|        num_rows: 7249
+|    })
+| })
+
+
+## Set up Trainer
+The next step is to create the training arguments. Some of the tutorials do this in raw pytorch, but as Huggingface provide a convenient trainer class to handle the loop, why not use it?
+
+```python
+from transformers import TrainingArguments, Trainer
+
+output_dir = "dbfs:/FileStore/lora-roberta-large-finetuned-reduced_captures" 
+repo_name = output_dir.split('/')[-1]
+
+args = TrainingArguments(
+  output_dir = output_dir,
+  remove_unused_columns=False,
+  evaluation_strategy="epoch",
+  save_strategy="epoch",
+  learning_rate=lr,
+  remove_unused_columns=False,  # already removed above
+  per_device_train_batch_size=batch_size,
+  gradient_accumulation_steps=4,
+  per_device_eval_batch_size=batch_size,
+  num_train_epochs=num_epochs,
+  logging_steps=10,
+  load_best_model_at_end=True,
+  metric_for_best_model="accuracy",
+  push_to_hub_model_id = repo_name,
+  push_to_hub=True,
+  label_names=["labels"],
+)
+
+trainer = Trainer(
+  model=lora_model,
+  args=args,
+  train_dataset=processed_ds["train"],
+  eval_dataset=processed_ds["validation"],
+  tokenizer=tokenizer,
+  compute_metrics=compute_metrics,
+  data_collator=data_collator,
+)
+```
+The output dir is often just given a the first argument without specifying what it is. I found this confusing, so always explicitly label it 'output_dir='. On Databricks there are two different ways to refer to filestore locations. It appears here we need the 'dbfs:/FileStore...' method, not the '/dbfs/FileStore...' method. The training look does not create this directory, it should exist beforehand.
+
+## Train the model
+Finally we get to train our LoRA model weights.Here I am using mlflow to track the experiment (although I sometimes use Neptune). As the trainer will log to all the known and loaded trackers (Neptune, MLFlow, WandB, Comet,etc), we can also just run the trainer and not specify in the arguments that it should log to anything in particular.
+
+One issue I find here consistently, and not yet resolved, is that it goes through all the epochs just fine, but fails to upload to huggingface repository on the very last epoch. The error message doesn't make it clear why this is.
+
+```python
+with mlflow.start_run(run_name="Robert-large-LoRA-finetuned-reduced-captures") as run:
+    mlflow.transformers.autolog(log_input_examples=True, log_model_signatures=True, log_models=True)
+    mlflow.log_param("label", "labels")
+    mlflow.log_param("features", "texts")
+    trainer.train()
+    trainer.evaluate()
+```
+
+
+| Epoch	| Training Loss | Validation Loss |	Accuracy |
+|:------|:-------------:|:---------------:|:--------:|
+| 0	| 0.392400 |	0.386166 |	0.890575 |
+| 1	| 0.438500 |	0.326691 |	0.904828 |
+| 2	| 0.388000 |	0.284924 |	0.917471 |
+| 4	| 0.271800 |	0.293888 |	0.917011 |
+| 5	| 0.287700 |	0.252233 |	0.926667 |
+| 6	| 0.233000 |	0.262420 |	0.925977 |
+| 8	| 0.239900 |	0.245826 |	0.934483 |
+| 9	| 0.150600 |	0.239042 |	0.933563 |
+
+
+## Save the dataset to the hub
+```python
+ds.push_to_hub(repo_name)
+```
+
+## Evaluate test set
+We see that the validation accuracy was 93.4% at the end, but what is the accuracy on the test dataset?
+```python
+predOutput = trainer.predict(processed_ds["test"])
+predictions = compute_metrics(predOutput)
+print(predictions)
+```
+Final accuracy was 93.2%
+
+## Next steps
+We have an accurate model, but this isn't really production-ready. Although a RoBERTA-large model is much smaller than even fairly small LLMs (357 million parameters, versus Llama Guard 2 at 8 billion), that is still a lot of 32bit floating point numbers, and is measured in GBs. Latency will not be that fast, it really needs a GPU, and it takes a lot of memory.
+
+To make it production ready I will look at:
+
+- Merging the adaptor weights with the base model
+- Distilling into DistilRoberta (82M params instead of 355M)
+- Quantizing the weights to 8-bit integers (<https://towardsdatascience.com/a-visual-guide-to-quantization-930ebcd9be94>)
+- Converting to ONNX and running ONNX-specific optimizations
+
+This would be described as PTQ (post-training quantization); I will compare with the results from QAT (quantization-aware training), eg using QLoRA. It will still require distillation, though. 
+
+That process will be the subject of the next post.

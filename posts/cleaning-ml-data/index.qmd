@@ -21,8 +21,7 @@ The data was of of the form
 | 2  | "another sample" | ['drugs'] | ['suicide'] | ['drugs'] | ['drugs'] |
 
 The label columns were in the form of a string such as:
-
-`['suicide', 'mental health', 'self-harm']`
+"['suicide', 'mental health', 'self-harm']"
 
 This may look like an array of strings, but it was actually just a single string starting and ending with a square bracket. This would need to be parsed and the strings converted to integer labels.
 
@@ -33,14 +32,14 @@ The first thing I found is that there are some inconsistencies in the labels fie
 - some were plural, some were singular ('weapon' vs 'weapons')
 - and we had both 'self-harm' and 'self harm' and 'Games' vs 'Games.' (a tricky one this because of the next issue)
 - sometimes the separator was a period instead of a comma
-- The column names were not valid Julia dataframe column identifiers, for example `Final Label`.
-- In some cases there was an extra bracket in the list of labels, `['label1', 'label2', 'label3']]` (this one was rare, so it was cleaned up in Excel and rexported to csv).
-- Some of the labels had missing quotes, `['label1', 'label2, label3']`
+- The column names were not valid Julia dataframe column identifiers, for example 'Final Label'.
+- In some cases there was an extra bracket in the list of labels, "['label1', 'label2', 'label3']]" (this one was rare, so it was cleaned up in Excel and re-exported to csv).
+- Some of the labels had missing quotes, ['label1', 'label2, label3']
 
 
 ## Loading and separating the data
 
-First load it, dealing with the column names in the process. I used DrWatson to set up my Julia projects.
+First load it, dealing with the column names in the process. I use DrWatson to set up my Julia projects.
 ```{{julia}}
 using DrWatson
 quickactivate(@__DIR__)
@@ -124,12 +123,12 @@ policy_names = Dict(
 Given a string such as "['class1', 'class3'...]" We can extract each policy name, strip extra characters, look up the label numbers, and return an array of integers. Optionally exclude any policies we don't want at this time (eg self-harm).
 
 ```{{julia}}
-function findepolicy(str, exclusions=[])
+function findpolicy(str, exclusions=[])
   isdelim(char) = char == '.' || char == ','
   splits = split(str, isdelim)
   items = map(x -> strip(x, [ '[', ']', ' ', ''', '"', '.' ]), splits)
   result = map(item -> policy_names(lowercase(item)), items)
-  return setdiff!result, exclusions)
+  return setdiff!(result, exclusions)
 end
 
 coded_df = @chain df begin

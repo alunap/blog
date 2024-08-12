@@ -3,7 +3,7 @@ title: "Geocoding in R"
 author: "Dr Alun ap Rhisiart"
 date: "2023-10-02"
 categories: [code, R, Geocomputing, data cleaning, data engineering]
-draft: false
+draft: true
 ---
 
 ## Sources of School Information
@@ -15,7 +15,9 @@ I like to get the geographical location for the entities so that I can plot them
 First, load the required libraries.
 
 ```{r}
+#! output: false
 library(tidyverse)
+library(arrow)
 library(ggmap)
 library(sf)
 library(janitor)
@@ -91,7 +93,8 @@ Since we have coordinates, why not plot them to see where the schools are? The b
 #| warning: false
 
 bb <- c(left = -8, bottom = 49.80, right = 3, top = 59.50)
-map_toner <- get_stamenmap(bb, zoom = 8, maptype = "toner-lite")
+register_stadiamaps("9f9e3c6f-d245-4bab-a545-5c32c02c257bE", write = TRUE)
+map_toner <- get_stadiamap(bb, zoom = 8, maptype = "stamen_toner_lite") 
 
 COLOUR_MUTED_BLUE <- "#1f77b4"
 COLOUR_SAFETY_ORANGE <- "#ff7f0e"

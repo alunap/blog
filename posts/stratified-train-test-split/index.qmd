@@ -18,7 +18,7 @@ using Parquet2: writefile, Dataset
 ds = Dataset(datadir("exp_pro", "captures_training.parquet"))
 captures = DataFrame(ds)
 ```
-Here is the function. As the comment says, splitting the training set into a train+validation set it optional.
+Here is the function. As the comment says, splitting the training set into a train+validation set is optional. *Note that in my case the labels start at zero (which means false positive). If your labels start at 1 you will need to change the loop*.
 
 ```{{julia}}
 """
