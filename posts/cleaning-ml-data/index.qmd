@@ -95,7 +95,7 @@ reduced_texts = vcat(negs, eating_disorders, ) # etc
 And write out the files once more. 
 
 #### Split into train/validation/test sets
-This worked well for scikit-learn models. I also wanted to build a Distilbert model using hugging-face transformers. Scikit-learn has a nice feature to split test-train and then uses cross-validation, but hugging face apparently does not. I split the training set into a train/validation set.
+This worked well for scikit-learn models. I also wanted to build a Distilbert model using hugging-face transformers. Scikit-learn has a nice feature to split test-train and then uses cross-validation, but hugging face apparently does not do cross-validation. I therefore split the training set into a train/validation set.
 ```{{julia}}
 shuffled_df = Dataframe(shuffle(eachrow(reduced_texts)))
 train_size = Int(round(nrow(shuffled_df) * 0.8))

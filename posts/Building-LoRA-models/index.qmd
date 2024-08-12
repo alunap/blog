@@ -7,7 +7,7 @@ draft: false
 ---
 
 ## Introduction
-Since 2021 LoRA methods and derivatives (such as QLora, IA3, etc) have become more common. Fine-tuning a BERT or decoder model, even though much better than training from scratch, still takes quite a bit of resources. Instead, these techniques leave the original weights and biases alone, and instead attach adaptor matrices to some of the hidden layers. We then just train these adaptors, which are much smaller than the original layers. In my case, it was 0.5% of the size. These methods can be as good on large datasets, and even better (comparatively) on smaller datasets.
+Since 2021 LoRA methods and derivatives (such as QLora, IA3, etc) have become more common. Fine-tuning a BERT or decoder model, even though much better than training from scratch, still takes quite a bit of resources. These techniques leave the original weights and biases alone, and instead attach adaptor matrices to some of the hidden layers. We then just train these adaptors, which are much smaller than the original layers. In my case, it was 0.5% of the size. These methods can be as good on large datasets, and even better (comparatively) on smaller datasets.
 
 ::: {.callout-note}
 With the development of LLMs, such as GPT-4, Claude, and Llama, there is the possibility of using prompt-engineering to get these models to output classifications, even though they were not trained to do so. I used this process myself using Llama Guard to find suitable training data to input into this process (some data had been annotated by an external company, but some categories had insufficient numbers, and the capture process produces a large percentage of false positives). The ability to use LLMs and prompt engineering for zero-shot and few-shot classification is a valuable advance, but I don't think it replaces training a real classifier. I say this for two reasons:
@@ -213,7 +213,6 @@ repo_name = output_dir.split('/')[-1]
 
 args = TrainingArguments(
   output_dir = output_dir,
-  remove_unused_columns=False,
   evaluation_strategy="epoch",
   save_strategy="epoch",
   learning_rate=lr,
@@ -240,7 +239,7 @@ trainer = Trainer(
   data_collator=data_collator,
 )
 ```
-The output dir is often just given a the first argument without specifying what it is. I found this confusing, so always explicitly label it 'output_dir='. On Databricks there are two different ways to refer to filestore locations. It appears here we need the 'dbfs:/FileStore...' method, not the '/dbfs/FileStore...' method. The training look does not create this directory, it should exist beforehand.
+The output dir is often just given as the first argument without specifying what it is. I found this confusing, so always explicitly label it 'output_dir='. On Databricks there are two different ways to refer to filestore locations. It appears here we need the 'dbfs:/FileStore...' method, not the '/dbfs/FileStore...' method. The training loop does not create this directory, it should exist beforehand.
 
 ## Train the model
 Finally we get to train our LoRA model weights.Here I am using mlflow to track the experiment (although I sometimes use Neptune). As the trainer will log to all the known and loaded trackers (Neptune, MLFlow, WandB, Comet,etc), we can also just run the trainer and not specify in the arguments that it should log to anything in particular.
@@ -293,6 +292,6 @@ To make it production ready I will look at:
 - Quantizing the weights to 8-bit integers (<https://towardsdatascience.com/a-visual-guide-to-quantization-930ebcd9be94>)
 - Converting to ONNX and running ONNX-specific optimizations
 
-This would be described as PTQ (post-training quantization); I will compare with the results from QAT (quantization-aware training), eg using QLoRA. It will still require distillation, though. 
+This would be described as PTQ (Post-Training Quantization); I will compare with the results from QAT (Quantization-Aware Training), eg using QLoRA. It will still require distillation, though. 
 
 That process will be the subject of the next post.
