@@ -2,7 +2,7 @@
 title: "Stratified train-test-split"
 author: "Dr Alun ap Rhisiart"
 date: "2024-07-04"
-categories: [code, Julia, data cleaning, data engineering]
+categories: [code, julia, data cleaning, data engineering]
 draft: false
 ---
 

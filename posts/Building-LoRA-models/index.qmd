@@ -2,7 +2,7 @@
 title: "Building LoRA Models"
 author: "Dr Alun ap Rhisiart"
 date: "2024-07-31"
-categories: [code, ml, huggingface, python, pyspark, databricks]
+categories: [code, ml, huggingface, nlp, python, pyspark, databricks]
 draft: false
 ---
 
