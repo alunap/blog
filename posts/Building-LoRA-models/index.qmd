@@ -2,7 +2,7 @@
 title: "Building LoRA Models"
 author: "Dr Alun ap Rhisiart"
 date: "2024-07-31"
-categories: [code, ml, huggingface]
+categories: [code, ml, huggingface, python, pyspark, databricks]
 ---
 
 ## Introduction
@@ -83,7 +83,7 @@ This yields
 |        num_rows: 7249
 |    })
 | })
-`
+
 
 Now we can collect the labels.
 ```python
