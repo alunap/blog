@@ -18,9 +18,9 @@ With the development of LLMs, such as GPT-4, Claude, and Llama, there is the pos
 
 In this first post, I will go through using LoRA (with some additions) methods to fine-tune a 'roberta-large' model on a sequence classification task with 12 labels. A follow-up post will consider how we take this model and make it suitable for deployment in production.
 
-Although there is a lot of documentation of <https://huggingface.co> it was still a bit confusing at times, since they would switch in their examples from CausalLM models to image classification models, sometimes using the trainer class, sometimes raw PyTorch, and so on. So I will document what I did here. I will also incorporate this into MLFlow running on DataBricks.
+Although there is a lot of documentation on <https://huggingface.co> it was still a bit confusing at times, since they would switch in their examples from CausalLM models to image classification models, sometimes using the trainer class, sometimes raw PyTorch, and so on. So I will document what I did here. I will also incorporate this into MLFlow running on DataBricks.
 
-We will be training a RoBERTA model using LoRA. See Hu, Edward J., Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, Lu Wang, and Weizhu Chen. LoRA: Low-Rank Adaptation of Large Language Models. arXiv, 16 October 2021. <https://doi.org/10.48550/arXiv.2106.09685>
+We will be training a RoBERTA model using LoRA. See Hu, Edward J., Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, Lu Wang, and Weizhu Chen (2021). LoRA: Low-Rank Adaptation of Large Language Models. <https://doi.org/10.48550/arXiv.2106.09685>
 
 We also follow the OLORA algorithm for initialisng the LoRA weights, as detailed in Büyükakyüz, Kerim (2024). OLoRA: Orthonormal Low-Rank Adaptation of Large Language Models. <http://arxiv.org/abs/2406.01775>
 
