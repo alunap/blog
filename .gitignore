@@ -1,3 +1,6 @@
 /.quarto/
 .Rproj.user
 /_site/
+**/*.quarto_ipynb
+_freeze/posts/ASM/Chapter_3/Linear_Regression/execute-results
+_freeze/posts/ASM_Chapter3/index/execute-results

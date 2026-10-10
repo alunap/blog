@@ -1,0 +1,341 @@
+---
+title: "ASM Chapter 3"
+author: "Alun ap Rhisiart"
+date: "10/05/2026"
+categories: [code, julia, statistics, asm, ecology]
+execute:
+  echo: true
+  warning: false
+  output: true
+engine: julia
+---
+# About ASM
+
+Applied Statistical Modelling for Ecologists (ASM) by Marc Kéry & Kenneth F. Kellner is a fantastic resource for quantitative ecologists looking to deepen their understanding of statistical modeling techniques. It is not as 'advanced' as Applied Hierarchical Modeling for Ecology vols 1 & 2 (AHM), or Integrated Population Models (IPM), but it provides a solid foundation for understanding and applying statistical models in ecological research. It takes a Rosetta Stone approach, with examples in JAGS, Stan, NIMBLE, TMB, and 'MLE-DIY'. But, what statistical Rosetta Stone is complete without a Julia implementation? You could argue the same about a Python implementation, but although I commonly use Python for data engineering and Machine Learning tasks, I never use it for statistics, so I will leave that to someone else.
+
+When I read for my BSc there was a course in statistics, and I enjoyed it because it was very practical. It was statistics that let me make sense of the data I collected and draw conclusions. Back then, it was all about using a cookbook, namely *Biometry* by Sokal & Rohlf. Inside the front and rear covers was a table, which you would consult to see, depending on number of variables and type of variables, which type of Null Hypothesis Significance Test (NHST) you should use: t-test, X-square, ANOVA, ANCOVA, etc. Each had its own table for looking up the significance level.
+
+It was only when I started diving into Bayesian methods around 6 years ago that I realised these were pretty much all just variations of the same thing: linear models. What the ASM book emphasises is not only are the different frequentist methods related in this way (via GLM), but that Frequentist (Maximum Likelihood Estimation) and Bayesian methods are also related, via the likelihood function. This is the subject of Chapter 2, which I'll write about later.
+
+It is not my intention to repeat the explanations in ASM, but just to add Julia to the Rosetta stone approach, with some remarks where I was struck by something. Therefore, if you don't have the book this section may be of little use to you. For those with the book, I give section numbers so that you can match up the Julia code with the corresponding sections in the book.
+
+Of course, Julia has RCall, and anything done in the book can be done in a Julia program, combining the speed of Julia for data munging with the exact statistical capabilities of R. I enjoy working in R, but I also appreciate the performance and flexibility that Julia offers.
+
+## Chapter 3
+
+### Distributions
+
+This chapter starts a discussion of the common distributions, namely Gaussian, Binomial/Bernoulli, Poisson, and Uniform. Interestingly, not Exponential, Laplace, Beta, Gamma, or half-Cauchy. That makes me interested to see the Bayesian models later in the book, to see what priors they are using.
+
+To start we import the Julia packages, for functions that are built-in to R. 
+```{julia}
+#| output: false
+using Pkg
+
+Pkg.add("StatsKit")
+Pkg.add("DataFramesMeta")
+Pkg.add("StatsPlots")
+
+using StatsKit, DataFramesMeta, StatsPlots
+```
+
+#### 3.2.1 Gaussian Distribution
+
+The chapter starts with the Gaussian, or Normal, distribution. This is determined by two parameters, the mean and the standard deviation. In Julia we can directly use Greek letters, not a romanised word. 
+```{julia}
+n = 100_000
+μ = 600
+σ = 30
+
+sample = rand(Normal(μ, σ), n)
+first(sample)
+histogram(sample, bins=60, normalize=:pdf)
+```
+The rest follow a similar pattern, but note that the way you get a random sample is different from R. There are no 'r*', 'd*', 'p*', or 'q*' functions as in R; instead, you use the `rand` function for sampling.
+
+#### 3.2.2 Uniform Distribution
+
+The Uniform distribution is defined by two parameters which are the minimum and maximum values over which we want equal probability.
+
+```{julia}
+n = 100_000
+a = lower_limit = 0
+b = upper_limit = 10
+
+sample = rand(Uniform(a, b), n)
+first(sample)
+histogram(sample, color = "grey", breaks=30)
+```
+
+#### 3.2.3 Binomial Distribution
+
+A Bernoulli distribution occurs when a binary event can occur with probabilty p, such as a coin toss. If there is a succesion of Bernoulli trials, each with the same probability of success, this is a Binomial distribution. In the book they graph proportions rather than frequencies, and I do the same here. Note the difference from Poisson. Although both deal with an integer, perhaps a count, in the Binomial case there is a strict upper limit. For example in capture-recapture you can't recapture more than you captured in the first place (the upper limit is the number of trials).
+
+```{julia}
+n = 100_000
+N = 16
+p = 0.8
+
+# Draw random numbers
+samp = rand(Binomial(N, p), n)
+
+# Calculate relative frequencies (Equivalent to table(sample)/n)
+pm = proportionmap(samp)
+
+# Extract and sort the keys and values for plotting
+x_vals = sort(collect(keys(pm)))
+y_vals = [pm[k] for k in x_vals]
+
+# Plot them
+bar(x_vals, y_vals,
+    bar_width=0.4,          # Equivalent to lwd = 20 (adjust to taste)
+    color=(:black),    
+    linecolor=:transparent, # Removes borders to match R's flat lines
+    xlims=(0, 16),
+    ylabel="Probability",
+    framestyle=:axes,       
+    legend=false,
+    xlabel="sample"
+)
+```
+
+Here is a simpler approach; we don't have to expose the proportions calculations as histogram() can normalise by itself
+```{julia}
+histogram(samp,
+    normalize=:probability,
+    bins=-0.5:1:16.5,       # Forces bins to center exactly on integers
+    bar_width=0.4,
+    color=(:black),
+    linecolor=:transparent,
+    xlims=(0, 16),
+    ylabel="Probability",
+    xlabel="sample",
+    framestyle=:axes,
+    legend=false
+)
+```
+
+#### 3.2.4 Poisson Distribution
+
+The Poisson distribution is very useful in ecology, where we are often dealing with counts with no upper limit and where the events occur independently.
+```{julia}
+n = 100_000
+λ = 5
+samp = rand(Poisson(λ), n)
+
+histogram(samp,
+    normalize=:probability,
+    bins=-0.5:1:15.5,       # Forces bins to center exactly on integers
+    bar_width=0.4,
+    color=(:black),
+    linecolor=:transparent,
+    xlims=(0, 15),
+    ylabel="Probability",
+    xlabel="sample",
+    framestyle=:axes,
+    legend=false
+)
+```
+
+### 3.4 Linear Modelling of Covariate effects
+
+This section shows beautifully how tests that I used to think were separate are actually all related. I must admit that I have never been exposed to design matrices before, and they make it crystal clear exactly what is happening.
+
+We start with a toy dataset about the mass of snakes.
+
+```{julia}
+df = DataFrame(mass=[60, 80, 50, 70, 90, 110],
+    pop=categorical([1, 1, 2, 2, 3, 3]),
+    reg=categorical([1, 1, 1, 1, 2, 2]),
+    hab=categorical([1, 2, 3, 1, 2, 3]),
+    length=[40, 45, 39, 50, 52, 56])
+
+show(df)
+```
+
+In the book they use R's model.matrix() function to show the design matrix, which is very valuable for really understanding what is going on, and how categorical variables and continous variables can coexist in the same model framework. There isn't a direct counterpart to that in Julia, so we make one. R's matrices can have column labels, whereas Julia's standard matrices do not, so we wrap the matrix in a DataFrame to retain the column names. The default DataFrame column names are of the form 'reg:1', 'pop:2', etc so we replace the ': ' with an empty string to make them match the R function output.
+
+```{julia}
+function design_matrix_df(formula, df)
+    mf = ModelFrame(formula, df)
+    mm = modelmatrix(mf) # shorthand for ModelMatrix(mf).m
+    col_names = replace.(string.(coefnames(mf.f.rhs)), ": " => "")
+    return DataFrame(mm, col_names)
+end
+```
+
+#### 3.4.1 Model of the mean
+
+Next, we can fit the simple intercept-only model.
+
+NB: the show() function in this code is just for Quarto, since I'm displaying the output of two lines of code per cell, not just the last one. It is not needed if you have Julia running in a script file. There you would just write `lm(@formula(mass ~ 1), df)` and it would output to the console.
+```{julia}
+show(lm(@formula(mass ~ 1), df))
+show(design_matrix_df(@formula(mass ~ 1), df))
+```
+
+#### 3.4.2 Comparison of two groups
+
+Next comes a simple comparison of two groups, here two different regions, using the default 'effect' parameterization.
+```{julia}
+show(lm(@formula(mass ~ reg), df))
+show(design_matrix_df(@formula(mass ~ reg), df))
+```
+
+And the same using means parameterization
+```{julia}
+show(lm(@formula(mass ~ -1 + reg), df))
+show(design_matrix_df(@formula(mass ~ -1 + reg), df))
+```
+
+The outputs are equivalent. In the effect parameterization, the intercept represents the mean of the reference group, whereas in the means parameterization, each coefficient represents the mean of the corresponding group. So in effect parameterisation the average mass of snakes in the 'default' region 1 is 65, and region 2 we see '35'. That 35 is the *difference* from region one, not the mass itself. In means parameterization, the average mass of snakes in region 1 is still 65, but in region 2 it is 100, which is 65 + 35.
+
+Effect parameterization is best when you are interested in the differences between groups, and means parameterization is best when you are interested in the actual group means.
+
+#### 3.4.3 Simple linear regression
+
+Next, we have one continuous covariate, the length, to fit to the mass. In R the design matrix can omit the LHS, but in Julia this cannot be done, we have to add a zero on the LHS if we want to omit the response.
+
+```{julia}
+show(lm(@formula(mass ~ length), df))
+show(design_matrix_df(@formula(0 ~ length), df))
+```
+
+Next, we look at a centered version. In R there is an I() operator. Generally, in formula syntax, +, -, and * characters have special meanings, so you need to wrap arithmetic expressions in I() to indicate they should be interpreted "as is". In Julia, this does not exist. You can use any Julia function in the formula directly, but vectorised operations are not the same, so it is better to add a column with the centered values to the DataFrame. Rather than change the dataframe we use @chain to do it dynamically.
+
+```{julia}
+m_centered = @chain df begin
+    @transform(:length_c = :length .- mean(:length))
+    lm(@formula(mass ~ length_c), _)
+end
+```
+
+#### 3.4.4 Modeling the effects of one categorical covariate, or factor
+
+We can fit a one-way ANOVA model using the categorical variable `pop`. The design matrix code is `model.matrix(~pop)`, but in StatsModels.jl it is not permitted to leave out the LHS entirely. We can use a zero: 
+```{julia}
+show(design_matrix_df(@formula(0 ~ pop), df))
+```
+Compare with the `mass ~ pop` design matrix below. They are identical.
+
+```{julia}
+show(lm(@formula(mass ~ pop), df))
+show(design_matrix_df(@formula(mass ~ pop), df))
+```
+
+This shows effect parameterisation, but we can also use means parameterisation by removing the intercept.
+
+```{julia}
+show(lm(@formula(mass ~ -1 + pop), df))
+show(design_matrix_df(@formula(mass ~ -1 + pop), df))
+```
+
+Note that in R you can place the -1 anywhere, but StatsModels.jl seems to object if it isn't at the beginning of the formula.
+
+#### 3.4.5 Modeling effects of two factors
+
+We can fit a two-way ANOVA model using the categorical variables `hab` and `reg` (habitat and region).
+```{julia}
+show(lm(@formula(mass ~ reg + hab), df))
+show(design_matrix_df(@formula(mass ~ reg + hab), df))
+```
+
+Adding interaction effects
+```{julia}
+show(lm(@formula(mass ~ reg * hab), df))
+show(design_matrix_df(@formula(mass ~ reg * hab), df))
+```
+
+And using means parameterization. For some reason, in the book, they use the '*' operator and then remove all the main effects. It is simpler to use '&' and not add them in the first place. Note that R uses `:` for interaction terms without main effects, whereas Julia uses `&`.
+```{julia}
+show(lm(@formula(mass ~ reg & hab), df))
+show(design_matrix_df(@formula(mass ~ reg & hab), df))
+```
+Finally, in this section, we have means parameterization of the interaction-effects model.
+```{julia}
+show(lm(@formula(mass ~ -1 + reg & hab), df))
+show(design_matrix_df(@formula(mass ~ -1 + reg & hab), df))
+```
+
+#### 3.4.6 Modeling the effects of a factor and a continuous covariate
+
+In an Analysis of Covariance (ANCOVA) we have both categorical and continuous covariates. In this case we have two covariates, one categorical and one continuous.
+```{julia}
+show(lm(@formula(mass ~ pop + length), df))
+show(design_matrix_df(@formula(mass ~ pop + length), df))
+```
+
+And the same with interactions
+```{julia}
+fm = lm(@formula(mass ~ pop * length), df)
+show(fm)
+show(design_matrix_df(@formula(mass ~ pop * length), df))
+```
+
+At this point, the authors show the difference by plotting. In the book the axes for this figure are reversed. Here we show them corrected.
+```{julia}
+fm = lm(@formula(mass ~ pop + length), df)
+c = coef(fm) # Extract coefficients vector
+# Base Scatter Plot (equivalent to R's `plot(...)`)
+# @df allows us to pass dataframe columns as symbols
+p1 = @df df scatter(:length, :mass,
+    group=:pop,
+    color=[:red :blue :green], # Match R's col = c("red", "red", ...) by mapping to groups
+    markershape=:circle,       # pch = 16 (solid circle)
+    markersize=6,              # cex = 1.5 (scaled up size)
+    markerstrokewidth=0,       # Removes outline to match pch = 16
+    ylims=(40, 120),
+    framestyle=:axes,          # frame = FALSE (removes top and right box edges)
+    legend=false,               # R base plot doesn't draw a legend automatically
+    ylabel="Mass",
+    xlabel="Length"
+)
+
+# Add Regression Lines (equivalent to R's `abline(...)`)
+# The idiomatic Julia way to do `abline` is to plot an anonymous function: x -> intercept + slope * x
+plot!(p1, x -> c[1] + c[4]*x, color=(:red), linewidth=2)
+plot!(p1, x -> (c[1] + c[2]) + c[4]*x, color=(:blue), linewidth=2)
+plot!(p1, x -> (c[1] + c[3]) + c[4]*x, color=(:green), linewidth=2)
+
+# Comparison plot with interactions
+fm2 = lm(@formula(mass ~ pop * length), df)
+c2 = coef(fm2)
+p2 = @df df scatter(:length, :mass,
+    group=:pop,
+    color=[:red :blue :green],
+    markershape=:circle,
+    markersize=6,
+    markerstrokewidth=0,
+    ylims=(40, 120),
+    framestyle=:axes,
+    legend=false,
+    ylabel="Mass",
+    xlabel="Length"
+)
+# Base line for pop 1 (Intercept + Base length slope * x)
+plot!(p2, x -> c2[1] + c2[4] * x, color=(:red), linewidth=2)
+
+# Line for pop 2 (Intercept + pop2 diff) + (Base slope + pop2 interaction) * x
+plot!(p2, x -> (c2[1] + c2[2]) + (c2[4] + c2[5]) * x, color=(:blue), linewidth=2)
+
+# Line for pop 3 (Intercept + pop3 diff) + (Base slope + pop3 interaction) * x
+plot!(p2, x -> (c2[1] + c2[3]) + (c2[4] + c2[6]) * x, color=(:green), linewidth=2)
+
+plot(p1, p2, layout=(1, 2), size=(800, 400))
+```
+
+Now main effects only, with means parameterisation.
+```{julia}
+show(lm(@formula(mass ~ -1 + pop + length), df))
+show(design_matrix_df(@formula(mass ~ -1 + pop + length), df))
+```
+
+And finally, ANCOVA with interactions and means parameterisation.
+```{julia}
+show(lm(@formula(mass ~ -1 + pop + pop &length), df))
+show(design_matrix_df(@formula(mass ~ -1 + pop + pop & length), df))
+```
+
+That wraps up the code translations for this chapter. Much of this is very familiar to me, but the real eye opener has been seeing the design matrix for each example, and realising that for categorical variables they dummy variables act like an indicator function in maths. If it is `1` then the value of that term is the coefficient, and if it is `0`, the term does not contribute to the linear predictor. It is so simple when you see it like that.
+
+This chapter was interesting and insightful, particularly in understanding how different parameterizations affect the interpretation of model coefficients, but the next is when we start fitting models. Since Turing.jl is primarily a HMC sampler, it should resemble the Stan code most, I would presume. However, I'm most familiar with jagui and NIMBLE, so we shall see.
