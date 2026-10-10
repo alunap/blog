@@ -1,1 +1,8 @@
-/* css styles */
+/* Custom styles */
+
+/* Make code output sharp (no glow) and pale blue across all posts */
+.cell-output pre,
+.cell-output pre code {
+  color: #a0c4ff;
+  text-shadow: none;
+}

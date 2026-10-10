@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://alunap.github.io/blog/about.html</loc>
+    <lastmod>2026-10-02T11:49:11.557Z</lastmod>
+  </url>
+  <url>
+    <loc>https://alunap.github.io/blog/Pandas_for_DS.html</loc>
+    <lastmod>2026-10-02T11:49:11.556Z</lastmod>
+  </url>
+  <url>
+    <loc>https://alunap.github.io/blog/posts/cleaning-ml-data/index.html</loc>
+    <lastmod>2026-10-02T11:49:11.558Z</lastmod>
+  </url>
+  <url>
+    <loc>https://alunap.github.io/blog/posts/stratified-train-test-split/index.html</loc>
+    <lastmod>2026-10-02T11:49:11.657Z</lastmod>
+  </url>
+  <url>
+    <loc>https://alunap.github.io/blog/posts/welcome/index.html</loc>
+    <lastmod>2026-10-02T11:49:11.657Z</lastmod>
+  </url>
+  <url>
+    <loc>https://alunap.github.io/blog/posts/ASM_Chapter3/index.html</loc>
+    <lastmod>2026-10-10T15:17:07.142Z</lastmod>
+  </url>
+  <url>
+    <loc>https://alunap.github.io/blog/posts/Building-LoRA-models/index.html</loc>
+    <lastmod>2026-10-02T11:49:11.558Z</lastmod>
+  </url>
+  <url>
+    <loc>https://alunap.github.io/blog/index.html</loc>
+    <lastmod>2026-10-05T18:16:25.365Z</lastmod>
+  </url>
+</urlset>
