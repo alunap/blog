@@ -6,3 +6,8 @@
   color: #a0c4ff;
   text-shadow: none;
 }
+
+/* Inline code in markdown: contrasting yellow */
+code:not(pre code) {
+  color: #e7ef13;
+}
