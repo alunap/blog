@@ -32,11 +32,11 @@ To start we import the Julia packages, for functions that are built-in to R.
 #| output: false
 using Pkg
 
-Pkg.add("StatsKit")
+Pkg.add("GLM")
 Pkg.add("DataFramesMeta")
 Pkg.add("StatsPlots")
 
-using StatsKit, DataFramesMeta, StatsPlots
+using GLM, DataFramesMeta, StatsBase, StatsPlots, CategoricalArrays, Distributions
 ```
 
 #### 3.2.1 Gaussian Distribution
@@ -48,7 +48,6 @@ n = 100_000
 σ = 30
 
 sample = rand(Normal(μ, σ), n)
-first(sample)
 histogram(sample, bins=60, normalize=:pdf)
 ```
 The rest follow a similar pattern, but note that the way you get a random sample is different from R. There are no 'r*', 'd*', 'p*', or 'q*' functions as in R; instead, you use the `rand` function for sampling.
@@ -63,7 +62,6 @@ a = lower_limit = 0
 b = upper_limit = 10
 
 sample = rand(Uniform(a, b), n)
-first(sample)
 histogram(sample, color = "grey", breaks=30)
 ```
 
@@ -251,6 +249,7 @@ And using means parameterization. For some reason, in the book, they use the '*'
 show(lm(@formula(mass ~ reg & hab), df))
 show(design_matrix_df(@formula(mass ~ reg & hab), df))
 ```
+
 Finally, in this section, we have means parameterization of the interaction-effects model.
 ```{julia}
 show(lm(@formula(mass ~ -1 + reg & hab), df))
@@ -336,6 +335,6 @@ show(lm(@formula(mass ~ -1 + pop + pop &length), df))
 show(design_matrix_df(@formula(mass ~ -1 + pop + pop & length), df))
 ```
 
-That wraps up the code translations for this chapter. Much of this is very familiar to me, but the real eye opener has been seeing the design matrix for each example, and realising that for categorical variables they dummy variables act like an indicator function in maths. If it is `1` then the value of that term is the coefficient, and if it is `0`, the term does not contribute to the linear predictor. It is so simple when you see it like that.
+That wraps up the code translations for this chapter. Much of this is very familiar to me, but the real eye opener has been seeing the design matrix for each example, and realising that for categorical variables the dummy variables act like an indicator function in maths. If it is `1` then the value of that term is the coefficient, and if it is `0`, the term does not contribute to the linear predictor. It is so simple when you see it like that.
 
-This chapter was interesting and insightful, particularly in understanding how different parameterizations affect the interpretation of model coefficients, but the next is when we start fitting models. Since Turing.jl is primarily a HMC sampler, it should resemble the Stan code most, I would presume. However, I'm most familiar with jagui and NIMBLE, so we shall see.
+This chapter was interesting and insightful, particularly in understanding how different parameterizations affect the interpretation of model coefficients, but the next chapter is when we start fitting models. Since Turing.jl is primarily a HMC sampler, it should resemble the Stan code most, I would presume. However, I'm most familiar with jagsui and NIMBLE, so we shall see.
