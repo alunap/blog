@@ -61,7 +61,63 @@ using GLM
 
 y10lm = lm(@formula(y10 ~ 1), DataFrame(y10=y10))
 y1000lm = lm(@formula(y1000 ~ 1), DataFrame(y1000=y1000))
-show(y1000lm)
+y1000lm
+```
+
+## Maximum Likelihood Estimation
+
+To keep in line with the book we will also do this manually, using idiomatic Julia where appropriate.
+
+```{julia}
+using Random, Optim, ForwardDiff, ADTypes
+
+# Optim requires arrays of floats, not integers
+starts = [550.0, 25.0] 
+
+# Objective Function (Negative Log-Likelihood)
+function NLL(param, y)
+    pop_mean = param[1]
+    pop_sd = param[2]
+    
+    # Catch negative standard deviations so the optimizer doesn't crash
+    if pop_sd <= 0.0
+        return Inf
+    end
+    
+    # Equivalent to -sum(dnorm(y, mean=pop_mean, sd=pop_sd, log=TRUE))
+    return -loglikelihood(Normal(pop_mean, pop_sd), y)
+end
+
+# Optimize
+# We use an anonymous function `p -> NLL(p, y1000)` to pass the data
+# autodiff = AutoForwardDiff() calculates the gradients automatically for faster convergence
+fm = optimize(p -> NLL(p, y1000), starts, LBFGS(), autodiff = AutoForwardDiff())
+
+# Extract the maximum likelihood estimates
+mle_estimates = Optim.minimizer(fm)
+println("MLE Estimates (Mean, SD): ", mle_estimates)
+
+# Calculate the Hessian at the minimum (equivalent to R's hessian=TRUE)
+H = ForwardDiff.hessian(p -> NLL(p, y1000), mle_estimates)
+println("Hessian Matrix:\n", H)
+```
+
+The book now checks convergence, inverts the 'Hessian', and gets the standard errors for the parameter estimates. We can do the same in Julia as follows:
+
+```{julia}
+using LinearAlgebra
+
+# Check convergence
+converged = Optim.converged(fm)
+println("Converged: ", converged)
+
+# Invert the Hessian to get the covariance matrix
+cov_matrix = inv(H)
+println("Covariance Matrix:\n", cov_matrix)
+
+# Standard errors for the parameter estimates
+std_errors = sqrt.(diag(cov_matrix))
+println("Standard Errors (Mean, SD): ", std_errors)
 ```
 
 ## The Turing.jl model
