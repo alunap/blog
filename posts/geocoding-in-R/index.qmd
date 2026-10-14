@@ -3,6 +3,7 @@ title: "Geocoding in R"
 author: "Dr Alun ap Rhisiart"
 date: "2023-10-02"
 categories: [code, R, Geocomputing, data cleaning, data engineering]
+draft: true
 ---
 
 ## Sources of School Information
@@ -88,7 +89,7 @@ write_parquet(official_data, here::here("posts", "geocoding-in-R", "data", "offi
 ## Plot the Schools
 
 Since we have coordinates, why not plot them to see where the schools are? The bounding box has to be worked out by trial and error. Now we can see that we are dealing with schools in England, but Edubase does not have information on Scottish or Northern Irish schools, and little on Welsh schools, which wasn't obvious before this step.
-```{r}
+```{{r}}
 #| warning: false
 
 bb <- c(left = -8, bottom = 49.80, right = 3, top = 59.50)
