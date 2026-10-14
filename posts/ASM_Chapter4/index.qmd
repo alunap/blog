@@ -18,7 +18,7 @@ First we pull in any packages we will need.
 using DataFramesMeta, Distributions, StatsBase, StatsPlots, RCall, MCMCChains, MCMCDiagnosticTools
 ```
 
-First, let's make sure we have the exact same random variables as the book, for direct comparison. To ensure this, we actually call the R code itself, rather than use any of Julia's RNGs.
+Next, let's make sure we have the exact same random variables as the book, for direct comparison. To ensure this, we actually call the R code itself, rather than using any of Julia's RNGs.
 
 ```{julia}
 R"""
@@ -33,6 +33,7 @@ first(y1000, 10)
 ```
 
 Next, eyeball the data, which will check that it looks the same as in the book.
+
 ```{julia}
 p1 = histogram(y10,
     color=:grey,
@@ -129,7 +130,7 @@ This is the main point about using Julia for Bayesian statistics. Let's build th
 using Turing
 
 @model function model_4_4(mass)
-    # 1. Priors
+    # Priors
     # Note: BUGS dnorm(0, 0.0001) uses precision τ = 0.0001, 
     # which corresponds to variance 10,000 or SD = 100 in Turing.
     pop_mean ~ Uniform(0, 5000)
@@ -138,7 +139,7 @@ using Turing
     # Add derived quantity for variance if required
     pop_var := pop_sd^2
 
-    # 3. Likelihood (Vectorized)
+    # Likelihood (Vectorized)
     mass .~ Normal(pop_mean, pop_sd)
 end
 
@@ -214,6 +215,6 @@ If TuringGLM is the equivalent of brms, then JuliaBUGS is the equivalent of rjag
 
 ### Gibbs Sampler
 
-It is a shame that there is no direct equivalent to a Gibbs sampler in Julia, as they do make handling of discrete variables such as N-Mixture or occupancy models much easier. There is a Gibbs sampler, but it seems to be for combining different samplers within a single framework. However, there is an argument to be made that marginalisation is the best approach. 
+It is a shame that there is no direct equivalent to a Gibbs sampler in Julia, as they do make handling of discrete variables such as N-Mixture or occupancy models much easier. There *is* a Gibbs sampler, but it seems to be for combining different samplers within a single framework. However, there is an argument to be made that marginalisation is the best approach. 
 
 I note that Turing does support Particle Gibbs, but I don't think that is quite the same use case. They provide AbstractMCMC as a common interface for MCMC samplers, which allows for flexibility in choosing different sampling algorithms, and it would seem not too difficult to have a Gibbs sampler for common ecological use cases to be built using it. There is, after all, a Metropolis-Hastings sampler. I'll look into that possibility.

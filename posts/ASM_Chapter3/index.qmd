@@ -28,6 +28,7 @@ Of course, Julia has RCall, and anything done in the book can be done in a Julia
 This chapter starts a discussion of the common distributions, namely Gaussian, Binomial/Bernoulli, Poisson, and Uniform. Interestingly, not Exponential, Laplace, Beta, Gamma, or half-Cauchy. That makes me interested to see the Bayesian models later in the book, to see what priors they are using.
 
 To start we import the Julia packages, for functions that are built-in to R. 
+
 ```{julia}
 #| output: false
 using Pkg
@@ -53,6 +54,7 @@ using GLM, DataFramesMeta, StatsBase, StatsPlots, CategoricalArrays, Distributio
 #### 3.2.1 Gaussian Distribution
 
 The chapter starts with the Gaussian, or Normal, distribution. This is determined by two parameters, the mean and the standard deviation. In Julia we can directly use Greek letters, not a romanised word. 
+
 ```{julia}
 n = 100_000
 μ = 600
@@ -61,6 +63,7 @@ n = 100_000
 sample = rand(Normal(μ, σ), n)
 histogram(sample, bins=60, normalize=:pdf)
 ```
+
 The rest follow a similar pattern, but note that the way you get a random sample is different from R. There are no 'r*', 'd*', 'p*', or 'q*' functions as in R; instead, you use the `rand` function for sampling.
 
 #### 3.2.2 Uniform Distribution
@@ -109,6 +112,7 @@ bar(x_vals, y_vals,
 ```
 
 Here is a simpler approach; we don't have to expose the proportions calculations as histogram() can normalise by itself
+
 ```{julia}
 histogram(samp,
     normalize=:probability,
@@ -127,6 +131,7 @@ histogram(samp,
 #### 3.2.4 Poisson Distribution
 
 The Poisson distribution is very useful in ecology, where we are often dealing with counts with no upper limit and where the events occur independently.
+
 ```{julia}
 n = 100_000
 λ = 5
@@ -178,6 +183,7 @@ end
 Next, we can fit the simple intercept-only model.
 
 NB: the show() function in this code is just for Quarto, since I'm displaying the output of two lines of code per cell, not just the last one. It is not needed if you have Julia running in a script file. There you would just write `lm(@formula(mass ~ 1), df)` and it would output to the console.
+
 ```{julia}
 show(lm(@formula(mass ~ 1), df))
 show(design_matrix_df(@formula(mass ~ 1), df))
@@ -186,6 +192,7 @@ show(design_matrix_df(@formula(mass ~ 1), df))
 #### 3.4.2 Comparison of two groups
 
 Next comes a simple comparison of two groups, here two different regions, using the default 'effect' parameterization.
+
 ```{julia}
 show(lm(@formula(mass ~ reg), df))
 show(design_matrix_df(@formula(mass ~ reg), df))
@@ -222,9 +229,11 @@ end
 #### 3.4.4 Modeling the effects of one categorical covariate, or factor
 
 We can fit a one-way ANOVA model using the categorical variable `pop`. The design matrix code is `model.matrix(~pop)`, but in StatsModels.jl it is not permitted to leave out the LHS entirely. We can use a zero: 
+
 ```{julia}
 show(design_matrix_df(@formula(0 ~ pop), df))
 ```
+
 Compare with the `mass ~ pop` design matrix below. They are identical.
 
 ```{julia}
@@ -244,24 +253,28 @@ Note that in R you can place the -1 anywhere, but StatsModels.jl seems to object
 #### 3.4.5 Modeling effects of two factors
 
 We can fit a two-way ANOVA model using the categorical variables `hab` and `reg` (habitat and region).
+
 ```{julia}
 show(lm(@formula(mass ~ reg + hab), df))
 show(design_matrix_df(@formula(mass ~ reg + hab), df))
 ```
 
 Adding interaction effects
+
 ```{julia}
 show(lm(@formula(mass ~ reg * hab), df))
 show(design_matrix_df(@formula(mass ~ reg * hab), df))
 ```
 
 And using means parameterization. For some reason, in the book, they use the '*' operator and then remove all the main effects. It is simpler to use '&' and not add them in the first place. Note that R uses `:` for interaction terms without main effects, whereas Julia uses `&`.
+
 ```{julia}
 show(lm(@formula(mass ~ reg & hab), df))
 show(design_matrix_df(@formula(mass ~ reg & hab), df))
 ```
 
 Finally, in this section, we have means parameterization of the interaction-effects model.
+
 ```{julia}
 show(lm(@formula(mass ~ -1 + reg & hab), df))
 show(design_matrix_df(@formula(mass ~ -1 + reg & hab), df))
@@ -270,12 +283,14 @@ show(design_matrix_df(@formula(mass ~ -1 + reg & hab), df))
 #### 3.4.6 Modeling the effects of a factor and a continuous covariate
 
 In an Analysis of Covariance (ANCOVA) we have both categorical and continuous covariates. In this case we have two covariates, one categorical and one continuous.
+
 ```{julia}
 show(lm(@formula(mass ~ pop + length), df))
 show(design_matrix_df(@formula(mass ~ pop + length), df))
 ```
 
 And the same with interactions
+
 ```{julia}
 fm = lm(@formula(mass ~ pop * length), df)
 show(fm)
@@ -283,6 +298,7 @@ show(design_matrix_df(@formula(mass ~ pop * length), df))
 ```
 
 At this point, the authors show the difference by plotting. In the book the axes for this figure are reversed. Here we show them corrected.
+
 ```{julia}
 fm = lm(@formula(mass ~ pop + length), df)
 c = coef(fm) # Extract coefficients vector
@@ -341,6 +357,7 @@ show(design_matrix_df(@formula(mass ~ -1 + pop + length), df))
 ```
 
 And finally, ANCOVA with interactions and means parameterisation.
+
 ```{julia}
 show(lm(@formula(mass ~ -1 + pop + pop &length), df))
 show(design_matrix_df(@formula(mass ~ -1 + pop + pop & length), df))
