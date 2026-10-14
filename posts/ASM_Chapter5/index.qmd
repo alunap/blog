@@ -1,0 +1,13 @@
+---
+title: "ASM Chapter 5"
+author: "Alun ap Rhisiart"
+date: "10/17/2026"
+categories: [code, julia, statistics, asm, ecology]
+execute:
+  echo: true
+  warning: false
+  output: true
+engine: julia
+---
+
+[Coming soon]

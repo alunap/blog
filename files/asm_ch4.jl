@@ -1,4 +1,4 @@
-using DataFramesMeta, Distributions, StatsBase, StatsPlots, RCall
+using DataFramesMeta, Distributions, StatsBase, StatsPlots, RCall, MCMCDiagnosticTools
 
 """We would like the exact same random variables as in Chapter 4 of the book
 so let's make use of RCall to reproduce it exactly."""
@@ -59,10 +59,17 @@ end
 
 # Sampling
 model = model_4_4(y1000)
-chains = sample(model, NUTS(), 10000, n_chains=4)
+chains = sample(model, NUTS(), 10000; chain_type=Chains)
 describe(chains)
+plot(chains)
 # add pop_var if we wish
 pop_var_samples = chains[:pop_sd] .^ 2
+
+# We can also look at individual diagnostics afterwards
+bfmi(chains) # updated from gelmandiag
+ess(chains) # effective sample size for each parameter
+rhat(chains) # potential scale reduction factor for each parameter
+mcse(chains) # Monte Carlo standard error for each parameter
 
 
 #--------------------------#
@@ -131,6 +138,7 @@ chain = sample(model, Gibbs(), 10_000)
 # 6. Subset parameters (equivalent to R's params)
 chain_params = chain[[:pop_mean, :pop_sd, :pop_var]]
 display(chain_params)
+
 
 # -----------------------------------------------
 # This is now deprecated, and turing_model does not work as per docs

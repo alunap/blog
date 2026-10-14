@@ -15,7 +15,7 @@ We turn to Chapter 4 of Applied Statistical Modelling for Ecologists, by Marc KÃ
 First we pull in any packages we will need.
 
 ```{julia}
-using DataFramesMeta, Distributions, StatsBase, StatsPlots, RCall, MCMCChains
+using DataFramesMeta, Distributions, StatsBase, StatsPlots, RCall, MCMCChains, MCMCDiagnosticTools
 ```
 
 First, let's make sure we have the exact same random variables as the book, for direct comparison. To ensure this, we actually call the R code itself, rather than use any of Julia's RNGs.
@@ -87,7 +87,7 @@ end
 
 # Sampling
 model = model_4_4(y1000)
-chains = sample(model, NUTS(), 10000, n_chains=4)
+chains = sample(model, NUTS(), 10000; chain_type=Chains)
 ```
 
 Keep in mind that this is a HMC/NUTS model, so equivalent to the Stan example. To me, at least, the model code is *far* more readable, and the steps needed to compile and run the model also short, simple, and easy to understand. More so than NIMBLE: no configure/build/compile/compile/run sequence, just define the model and sample. And the model itself has no declaring of types, no defined sections for params and data, and the code is Julia, so it has the full range of Julia functions available. Also, there is no likelihood loop, because it can do broadcasting as normal, so it is even shorter than the JAGS model code. 
@@ -114,7 +114,38 @@ plot(chains; size=(800,600))
 
 There are lots of other plotting options, shown here: https://turinglang.org/MCMCChains.jl/stable/statsplots/
 
-## Other options
+Describe shows the main diagnostics, but if we wish we can get more detailed diagnostics using the MCMCDiagnosticTools package, for example:
+
+```{julia}
+show(summarystats(chains))
+show(bfmi(chains)) # updated from gelmandiag
+show(ess(chains)) # effective sample size for each parameter
+show(rhat(chains)) # potential scale reduction factor for each parameter
+show(mcse(chains)) # Monte Carlo standard error for each parameter
+```
+
+### Logical tests
+
+For jagsUI (section 4.4.2) the book shows how to do straightforward logical tests, such as `mean(sims[,"pop.mean"] < 597)`. We can do a similar thing with Turing.
+
+#### The direct vector extraction way
+
+```{julia}
+# Extract flattened vector of all posterior draws (e.g. 10,000 x 4 = 40,000 draws)
+pop_mean_draws = vec(Array(chains[:pop_mean]))
+
+# Calculate posterior probability P(pop_mean < 597)
+prob = mean(pop_mean_draws .< 597)
+```
+
+#### As a one-liner
+
+```{julia}
+# Direct one-liner
+prob = mean(chains[:pop_mean] .< 597)
+```
+
+## Other options besides Turing
 
 The Julia ecosystem is a lot less mature than R. Turing itself is mature and stable, but other packages for Bayesian modeling may not be as fully developed or as user-friendly as their R counterparts. 
 
@@ -125,6 +156,8 @@ I tried JuliaBUGS and TuringGLM as well, and could get neither to work. TuringGL
 ### JuliaBUGS
 
 If TuringGLM is the equivalent of brms, then JuliaBUGS is the equivalent of rjags or jagsui, providing an interface to the JAGS modelling language from within Julia. It does not call the R programs, but runs on top of Turing.jl. This sounds great for someone coming from R. Even better, it refers to a subpackage in R which would allow R users to run their model in Julia. However, the documentation is messy and I could not get either this simple model to work nor the examples in the documentation. Therefore, I will not be considering JuliaBUGS further in this series.
+
+### Gibbs Sampler
 
 It is a shame that there is no direct equivalent to a Gibbs sampler in Julia, as they do make handling of discrete variables such as N-Mixture or occupancy models much easier. There is a Gibbs sampler, but it seems to be for combining different samplers within a single framework. However, there is an argument to be made that marginalisation is the best approach. 
 

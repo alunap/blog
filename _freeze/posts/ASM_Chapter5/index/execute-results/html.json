@@ -1,0 +1,12 @@
+{
+  "hash": "e652c1505de90bb0a91f51dc5496fecf",
+  "result": {
+    "engine": "julia",
+    "markdown": "---\ntitle: \"ASM Chapter 5\"\nauthor: \"Alun ap Rhisiart\"\ndate: \"10/17/2026\"\ncategories: [code, julia, statistics, asm, ecology]\nexecute:\n  echo: true\n  warning: false\n  output: true\nengine: julia\n---\n\n[Coming soon]\n\n",
+    "supporting": [
+      "index_files"
+    ],
+    "filters": [],
+    "includes": {}
+  }
+}
