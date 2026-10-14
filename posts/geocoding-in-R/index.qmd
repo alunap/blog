@@ -3,7 +3,6 @@ title: "Geocoding in R"
 author: "Dr Alun ap Rhisiart"
 date: "2023-10-02"
 categories: [code, R, Geocomputing, data cleaning, data engineering]
-draft: true
 ---
 
 ## Sources of School Information

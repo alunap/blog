@@ -39,6 +39,17 @@ Pkg.add("StatsPlots")
 using GLM, DataFramesMeta, StatsBase, StatsPlots, CategoricalArrays, Distributions
 ```
 
+### Quick Translation Summary
+
+|      R Function      |      Julia Equivalent       |               Purpose               |
+|:--------------------:|:---------------------------:|:-----------------------------------:|
+|   `rnorm(n, m, s)`   |   `rand(Normal(m, s), n)`   |       Random sampling (`r*`)       |
+|   `dnorm(x, m, s)`   |   `pdf(Normal(m, s), x)`    | Probability Density Function (`d*`) |
+| `dnorm(…, log=TRUE)` |  `logpdf(Normal(m, s), x)`  |       Log Probability Density       |
+|   `pnorm(q, m, s)`   |   `cdf(Normal(m, s), q)`    |   Cumulative Distribution (`p*`)    |
+|   `qnorm(p, m, s)`   | `quantile(Normal(m, s), p)` |          Quantiles (`q*`)           |
+
+
 #### 3.2.1 Gaussian Distribution
 
 The chapter starts with the Gaussian, or Normal, distribution. This is determined by two parameters, the mean and the standard deviation. In Julia we can directly use Greek letters, not a romanised word. 
