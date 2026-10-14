@@ -123,7 +123,7 @@ println("Standard Errors (Mean, SD): ", std_errors)
 
 ## The Turing.jl model
 
-This is the main point about using Julia for Bayesian statistics. Let's build the same model in Turing.jl. Note that as this is running in a Quarto document although I have set chains=4 as I normally would it just runs one chain. Also, with the latest version of Turing, the default chain type has changed, so we explicitly set it to `Chains` in the sampling call to maintain compatibility with the MCMCDiagnosticsTools function below, which are not yet updated to `FlexiChains.VNChain` format.
+This is the main point about using Julia for Bayesian statistics. Let's build the same model in Turing.jl. Also, with the latest version of Turing, the default chain type has changed, so we explicitly set it to `Chains` in the sampling call to maintain compatibility with the MCMCDiagnosticsTools function below, which are not yet updated to `FlexiChains.VNChain` format.
 
 ```{julia}
 #| output: false
@@ -145,10 +145,10 @@ end
 
 # Sampling
 model = model_4_4(y1000)
-chains = sample(model, NUTS(), 10000; chains=4, chain_type=Chains)
+chains = sample(model, NUTS(), MCMCThreads(), 10000, 4; chain_type=Chains)
 ```
 
-Keep in mind that this is a HMC/NUTS model, so equivalent to the Stan example. To me, at least, the model code is *far* more readable, and the steps needed to compile and run the model also short, simple, and easy to understand. More so than NIMBLE: no configure/build/compile/compile/run sequence, just define the model and sample. And the model itself has no declaring of types, no defined sections for params and data, and the code is Julia, so it has the full range of Julia functions available. Also, there is no likelihood loop, because it can do broadcasting as normal, so it is even shorter than the JAGS model code. 
+Keep in mind that this is a HMC/NUTS model, so equivalent to the Stan example. To me, at least, the model code is *far* more readable, and the steps needed to compile and run the model also short, simple, and easy to understand. More so than NIMBLE: no configure/build/compile/compile/run sequence, just define the model and sample. Yes, there is a single function to run NIMBLE, too, but then you can't run in parallel. In Turing, the `sample()` function can take `MCMCThreads()` or `MCMCDistributed()`. And the model itself has no declaring of types, no defined sections for params and data, and the code is Julia, so it has the full range of Julia functions available. Also, there is no likelihood loop, because it can do broadcasting as normal, so it is even shorter than the JAGS model code. 
 
 One thing to note is that, as it is Julia code, the order matters, unlike JAGS. You have to define variables before you can refer to them.
 
