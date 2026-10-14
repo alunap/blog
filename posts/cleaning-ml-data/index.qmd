@@ -53,12 +53,12 @@ df = vcat(consensus, nonconsensus)
 ```
 
 ## Single label classifier
-Now we have have it all in one datafame, the next step is to extract the texts that are associated with a classification. This is actually quite simple in Julia:
+Now we have it all in one datafame, the next step is to extract the texts that are associated with a classification. This is actually quite simple in Julia:
 ```{{julia}}
 negatives = filter(rows -> occursin.("negative", lowercase(rows.Final_Label)), df)
 self_harm = filter(rows -> occursin.("self", lowercase(rows.Final_Label)), df)
 ```
-and so on for all the categories. Here we don't have to worry about issues like singular or plural, or what separators are used. The final list is going to be a bit more than the original count, since there are some texts that belong to more than one classification. In this case, only 7% of the texts were associoted with more than one classification, and we are not sure whether a multi-class model is needed at all.
+and so on for all the categories. Here we don't have to worry about issues like singular or plural, or what separators are used. The final list is going to be a bit more than the original count, since there are some texts that belong to more than one classification. In this case, only 7% of the texts were associated with more than one classification, and we are not sure whether a multi-class model is needed at all.
 ```{{julia}}
 total = nrow(negatives) + nrow(self_harm) # +...etc
 ```
@@ -85,7 +85,8 @@ CSV.write(datadir("exp_pro", "all_texts.csv"), all_texts, header=true, append=fa
 write_parquet(datadir("exp_pro", "all_texts.parquet"), all_texts)
 ```
 #### Build the model and examine
-The model (or actually a number of scikit-learn models) were built in python, for which I could use PythonCall, but let's skip that part. This is about handling data, not building models.
+The model (or actually a number of scikit-learn models) was built in python, for which I could use PythonCall, but let's skip that part. This is about handling data, not building models.I could also use Scikitlearn.jl to build the models directly in Julia.
+
 What I found is that the accuracy was very poor for self-harm, because there were far fewer instances in the dataset. I decided to remove this classification for now, and build a model without it. This is straightforward. In addition, there was a large imbalance between negatives and all the positive classifications, which means that the balanced accuracy score was significantly lower than the overall accuracy score. I decided to downsample the negatives to bring the numbers roughly in line with the others.
 
 ```{{julia}}

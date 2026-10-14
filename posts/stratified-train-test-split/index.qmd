@@ -7,7 +7,7 @@ draft: false
 ---
 
 # A stratified train-test-split function
-I previously wrote some Julia code to do a train-test-split with the train dataset also split to train/validation. However, I wanted to improve on this by making a stratified split, which took account of the different sample sizes, giving the same proportions for each label.
+I previously wrote some Julia code to do a train-test-split with the train dataset also split to train/validation. However, I wanted to improve on this by making a stratified split, which took account of the different sample sizes, giving the same proportions for each label. There are a number of packaged functions these days to this, eg in MLBase.jl, MLDataUtils.jl, MLUtils.jl, and DataSplits.jl. But it was a fun thing to write from scratch.
 
 The data was available in a parquet file with two columns, a 'text' column of strings (the corpus), and a 'label' column of integers (the labels). 
 
