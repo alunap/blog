@@ -201,7 +201,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <section id="a-stratified-train-test-split-function" class="level1">
 <h1>A stratified train-test-split function</h1>
-<p>I previously wrote some Julia code to do a train-test-split with the train dataset also split to train/validation. However, I wanted to improve on this by making a stratified split, which took account of the different sample sizes, giving the same proportions for each label.</p>
+<p>I previously wrote some Julia code to do a train-test-split with the train dataset also split to train/validation. However, I wanted to improve on this by making a stratified split, which took account of the different sample sizes, giving the same proportions for each label. There are a number of packaged functions these days to this, eg in MLBase.jl, MLDataUtils.jl, MLUtils.jl, and DataSplits.jl. But it was a fun thing to write from scratch.</p>
 <p>The data was available in a parquet file with two columns, a ‘text’ column of strings (the corpus), and a ‘label’ column of integers (the labels).</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="in">```{julia}</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">StatsBase</span>, <span class="bu">DataFramesMeta</span>, <span class="bu">Random</span></span>
