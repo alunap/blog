@@ -136,7 +136,8 @@ using Turing
     pop_sd ~ Uniform(1, 100)
 
     # Add derived quantity for variance if required
-    pop_var = pop_sd^2
+    pop_var := pop_sd^2
+
     # 3. Likelihood (Vectorized)
     mass .~ Normal(pop_mean, pop_sd)
 end
@@ -155,11 +156,6 @@ Now we can examine the posterior distribution of the parameters.
 describe(chains)
 ```
 
-We can also consider pop_var if we wish with the following code (which I do not consider further).
-
-```{{julia}}
-pop_var_samples = chains[:pop_sd] .^ 2
-```
 ## Trace plots
 
 Getting trace and density plots from the chains is very straightforward.
