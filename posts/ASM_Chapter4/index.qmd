@@ -15,7 +15,7 @@ We turn to Chapter 4 of Applied Statistical Modelling for Ecologists, by Marc KÃ
 First we pull in any packages we will need.
 
 ```{julia}
-using DataFramesMeta, Distributions, StatsBase, StatsPlots, RCall, MCMCChains, MCMCDiagnosticTools
+using DataFramesMeta, Distributions, StatsBase, StatsPlots, RCall, MCMCChains
 ```
 
 Next, let's make sure we have the exact same random variables as the book, for direct comparison. To ensure this, we actually call the R code itself, rather than using any of Julia's RNGs.
@@ -123,7 +123,7 @@ println("Standard Errors (Mean, SD): ", std_errors)
 
 ## The Turing.jl model
 
-This is the main point about using Julia for Bayesian statistics. Let's build the same model in Turing.jl. Also, with the latest version of Turing, the default chain type has changed, so we explicitly set it to `Chains` in the sampling call to maintain compatibility with the MCMCDiagnosticsTools function below, which are not yet updated to `FlexiChains.VNChain` format.
+This is the main point about using Julia for Bayesian statistics. Let's build the same model in Turing.jl. Also, with the latest version of Turing, the default chain type has changed, so you need explicitly set it to `Chains` in the sampling call to maintain compatibility with the MCMCDiagnosticsTools functions, which are not yet updated to `FlexiChains.VNChain` format. Here I will just use the diagnostics available in MCMCChains itself.
 
 ```{julia}
 #| output: false
@@ -167,18 +167,20 @@ plot(chains; size=(800,600))
 
 There are lots of other plotting options, shown here: [https://turinglang.org/MCMCChains.jl/stable/statsplots/
 
-Describe shows the main diagnostics, but if we wish we can get more detailed diagnostics using the MCMCDiagnosticTools package, for example:
+Diagnostics any of the following (and more):
 
-```{julia}
-summarystats(chains)
-```
-
-Or any of the following (and more):
-
-- `bfmi(chains)` # updated from gelmandiag
+- `rstar(chains)` # updated from gelmandiag
 - `ess(chains)` # effective sample size for each parameter
 - `rhat(chains)` # potential scale reduction factor for each parameter
 - `mcse(chains)` # Monte Carlo standard error for each parameter
+
+and more, or the Highest Posterior Density (HPD) intervals.
+
+```{julia}
+hpd(chains)
+```
+
+Finally, we can do Prior Predictive Checks and Posterior Predictive Checks. But as the chapter doesn't mention them we will leave to a later model.
 
 ### Logical tests
 
