@@ -8,6 +8,7 @@ execute:
   warning: false
   output: true
 engine: julia
+draft: true
 ---
 
 Chapter 5 of Applied Statistical Modelling for Ecologists, by Marc Kéry and Kenneth Kellner, focuses on Ordinary Linear Regression. This chapter also gets in the interesting subject of Post Predictive Checks and Goodness Of Fit.

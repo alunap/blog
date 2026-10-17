@@ -44,7 +44,7 @@ using GLM, DataFramesMeta, StatsBase, StatsPlots, CategoricalArrays, Distributio
 
 |      R Function      |      Julia Equivalent       |               Purpose               |
 |:--------------------:|:---------------------------:|:-----------------------------------:|
-|   `rnorm(n, m, s)`   |   `rand(Normal(m, s), n)`   |       Random sampling (`r*`)       |
+|   `rnorm(n, m, s)`   |   `rand(Normal(m, s), n)`   |       Random sampling (`r*`)        |
 |   `dnorm(x, m, s)`   |   `pdf(Normal(m, s), x)`    | Probability Density Function (`d*`) |
 | `dnorm(…, log=TRUE)` |  `logpdf(Normal(m, s), x)`  |       Log Probability Density       |
 |   `pnorm(q, m, s)`   |   `cdf(Normal(m, s), q)`    |   Cumulative Distribution (`p*`)    |
@@ -248,7 +248,9 @@ show(lm(@formula(mass ~ -1 + pop), df))
 show(design_matrix_df(@formula(mass ~ -1 + pop), df))
 ```
 
+::: {.callout-note}
 Note that in R you can place the -1 anywhere, but StatsModels.jl seems to object if it isn't at the beginning of the formula.
+:::
 
 #### 3.4.5 Modeling effects of two factors
 
@@ -266,7 +268,11 @@ show(lm(@formula(mass ~ reg * hab), df))
 show(design_matrix_df(@formula(mass ~ reg * hab), df))
 ```
 
-And using means parameterization. For some reason, in the book, they use the '*' operator and then remove all the main effects. It is simpler to use '&' and not add them in the first place. Note that R uses `:` for interaction terms without main effects, whereas Julia uses `&`.
+And using means parameterization. For some reason, in the book, they use the '*' operator and then remove all the main effects. It is simpler to use '&' and not add them in the first place. 
+
+::: {.callout-note}
+Note that R uses `:` for interaction terms without main effects, whereas Julia uses `&`.
+:::
 
 ```{julia}
 show(lm(@formula(mass ~ reg & hab), df))
