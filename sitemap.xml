@@ -1,39 +1,39 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://alunap.github.io/blog/about.html</loc>
+    <loc>https://blog.aprhisiart.uk/about.html</loc>
     <lastmod>2026-10-12T19:05:51.568Z</lastmod>
   </url>
   <url>
-    <loc>https://alunap.github.io/blog/Pandas_for_DS.html</loc>
+    <loc>https://blog.aprhisiart.uk/Pandas_for_DS.html</loc>
     <lastmod>2026-10-12T19:05:51.566Z</lastmod>
   </url>
   <url>
-    <loc>https://alunap.github.io/blog/posts/cleaning-ml-data/index.html</loc>
+    <loc>https://blog.aprhisiart.uk/posts/cleaning-ml-data/index.html</loc>
     <lastmod>2026-10-14T21:15:17.162Z</lastmod>
   </url>
   <url>
-    <loc>https://alunap.github.io/blog/posts/ASM_Chapter3/index.html</loc>
+    <loc>https://blog.aprhisiart.uk/posts/ASM_Chapter3/index.html</loc>
     <lastmod>2026-10-17T22:13:23.980Z</lastmod>
   </url>
   <url>
-    <loc>https://alunap.github.io/blog/posts/welcome/index.html</loc>
+    <loc>https://blog.aprhisiart.uk/posts/welcome/index.html</loc>
     <lastmod>2026-10-12T19:05:51.678Z</lastmod>
   </url>
   <url>
-    <loc>https://alunap.github.io/blog/posts/stratified-train-test-split/index.html</loc>
+    <loc>https://blog.aprhisiart.uk/posts/stratified-train-test-split/index.html</loc>
     <lastmod>2026-10-14T21:15:12.941Z</lastmod>
   </url>
   <url>
-    <loc>https://alunap.github.io/blog/posts/ASM_Chapter4/index.html</loc>
-    <lastmod>2026-10-17T22:14:37.878Z</lastmod>
+    <loc>https://blog.aprhisiart.uk/posts/ASM_Chapter4/index.html</loc>
+    <lastmod>2026-10-19T18:48:28.601Z</lastmod>
   </url>
   <url>
-    <loc>https://alunap.github.io/blog/posts/Building-LoRA-models/index.html</loc>
+    <loc>https://blog.aprhisiart.uk/posts/Building-LoRA-models/index.html</loc>
     <lastmod>2026-10-12T19:05:51.571Z</lastmod>
   </url>
   <url>
-    <loc>https://alunap.github.io/blog/index.html</loc>
+    <loc>https://blog.aprhisiart.uk/index.html</loc>
     <lastmod>2026-10-12T19:05:51.570Z</lastmod>
   </url>
 </urlset>
