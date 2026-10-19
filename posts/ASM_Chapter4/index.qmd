@@ -15,7 +15,7 @@ We turn to Chapter 4 of Applied Statistical Modelling for Ecologists, by Marc KÃ
 First we pull in any packages we will need.
 
 ```{julia}
-using DataFramesMeta, Distributions, StatsBase, StatsPlots, RCall, MCMCChains
+using DataFramesMeta, Distributions, StatsBase, StatsPlots, RCall
 ```
 
 Next, let's make sure we have the exact same random variables as the book, for direct comparison. To ensure this, we actually call the R code itself, rather than using any of Julia's RNGs.
@@ -123,11 +123,11 @@ println("Standard Errors (Mean, SD): ", std_errors)
 
 ## The Turing.jl model
 
-This is the main point about using Julia for Bayesian statistics. Let's build the same model in Turing.jl. Also, with the latest version of Turing, the default chain type has changed, so you need explicitly set it to `Chains` in the sampling call to maintain compatibility with the MCMCDiagnosticsTools functions, which are not yet updated to `FlexiChains.VNChain` format. Here I will just use the diagnostics available in MCMCChains itself.
+This is the main point about using Julia for Bayesian statistics. Let's build the same model in Turing.jl. Here, I'm including pop_var as a variable to track, but not estimate. We do this with the `:=` operator, which defines a deterministic relationship in the model. However, for a situation like this I would normally calculate this after the sampling, as shown below. 
 
 ```{julia}
 #| output: false
-using Turing
+using Turing, FlexiChains, MCMCDiagnosticTools
 
 @model function model_4_4(mass)
     # Priors
@@ -145,7 +145,14 @@ end
 
 # Sampling
 model = model_4_4(y1000)
-chains = sample(model, NUTS(), MCMCThreads(), 10000, 4; chain_type=Chains)
+chains = sample(model, NUTS(), MCMCThreads(), 10000, 4; progress=false)
+```
+
+After sampling, we can calculate the population variance from the posterior draws of the standard deviation rather than relying on the deterministic variable `pop_var` defined in the model.
+
+```{julia}
+pop_sd_draws = vec(Array(chains[:pop_sd]))
+mean(pop_sd_draws .^ 2)
 ```
 
 Keep in mind that this is a HMC/NUTS model, so equivalent to the Stan example. To me, at least, the model code is *far* more readable, and the steps needed to compile and run the model also short, simple, and easy to understand. More so than NIMBLE: no configure/build/compile/compile/run sequence, just define the model and sample. Yes, there is a single function to run NIMBLE, too, but then you can't run in parallel. In Turing, the `sample()` function can take `MCMCThreads()` or `MCMCDistributed()`. And the model itself has no declaring of types, no defined sections for params and data, and the code is Julia, so it has the full range of Julia functions available. Also, there is no likelihood loop, because it can do broadcasting as normal, so it is even shorter than the JAGS model code. 
@@ -156,7 +163,7 @@ One thing to note is that, as it is Julia code, the order matters, unlike JAGS. 
 
 Now we can examine the posterior distribution of the parameters.
 ```{julia}
-describe(chains)
+summarystats(chains)
 ```
 
 ## Trace plots
@@ -167,20 +174,17 @@ Getting trace and density plots from the chains is very straightforward.
 plot(chains; size=(800,600))
 ```
 
-There are lots of other plotting options, shown here: https://turinglang.org/MCMCChains.jl/stable/statsplots/
+There are lots of other plotting options, shown here: https://juliabayes.org/FlexiChains.jl/stable/plotting
 
 Diagnostics any of the following (and more):
 
-- `rstar(chains)` # updated from gelmandiag
-- `ess(chains)` # effective sample size for each parameter
-- `rhat(chains)` # potential scale reduction factor for each parameter
-- `mcse(chains)` # Monte Carlo standard error for each parameter
+* `mean(chains)` # posterior mean for each parameter
+* `median(chains)` # posterior median for each parameter
+* `ess(chains)` # effective sample size for each parameter
+* `rhat(chains)` # potential scale reduction factor for each parameter
+* `mcse(chains)` # Monte Carlo standard error for each parameter
 
-and more, or the Highest Posterior Density (HPD) intervals.
-
-```{julia}
-hpd(chains)
-```
+and more. We can also add posterior statistics from the PosteriorStats.jl package.
 
 Finally, we can do Prior Predictive Checks and Posterior Predictive Checks. But as the chapter doesn't mention them we will leave to a later model.
 

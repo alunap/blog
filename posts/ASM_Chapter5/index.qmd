@@ -12,3 +12,148 @@ draft: true
 ---
 
 Chapter 5 of Applied Statistical Modelling for Ecologists, by Marc Kéry and Kenneth Kellner, focuses on Ordinary Linear Regression. This chapter also gets in the interesting subject of Post Predictive Checks and Goodness Of Fit.
+
+In this chapter, we use a simulated dataset about wallcreepers (which we don't have in the UK, grrrh). I guess this is very familiar to most people. If the value of our dependent variable $y_i$ varies acconding to independent variable $x_i$, then
+$$\mu = \alpha + \beta\cdot x_i$$
+We take this to deterministic, linear part to be the mean, or expected value.
+$$y_i\sim{Normal(\alpha + \beta\cdot x_i, \sigma^2)}$$
+We can also express this as a linear equation for the mean plus an error term.
+$$y_i = \alpha + \beta\cdot x_i + \epsilon_i$$
+$$\epsilon_i\sim{Normal(0, \sigma^2)}$$
+So, we have an overall intercept, a coefficient for the effect of x, which will be a regression line, and some scatter around that line which is normally distributed but centered on the line itself.
+
+## 5.2 Data generation
+As usual, the data is simulated, so we know the real value of the parameters, and can check that our model can recover them.
+
+```{julia}
+using Random
+
+Random.seed!(5)
+n = 16     # number of years 
+var = 25 # residual variance
+
+truth = (α = 40, β = -0.5, σ = sqrt(var))
+```
+
+Next, we plot the generated data. As in previous chapters, although we can get random numbers from the Normal distribution, they won't exactly match the book output, because it is a different RNG. So we will just drop into R to get the value of epsilon. I fudged putting the sd into R because R doesn't know Unicode; I could just use roman letters (eps) for the variable, but it isn't important here, since I just want to get the same numbers. In reality, I would use the Julia RNG anyway.
+
+```{julia}
+#| output: false
+
+using RCall
+
+@rput n
+R"set.seed(5);eps <- rnorm(n, 0, sd = 5)"
+@rget eps
+```
+
+```{julia}
+using StatsPlots, Distributions
+
+ϵ = eps
+x = 1:n
+y = truth.α .+ truth.β .* x .+ ϵ
+scatter(1989 .+ x, y, xlabel="Year", ylabel="Wallcreeper Count", title="Simulated Wallcreeper Data")
+```
+
+## 5.3 Analysis with Canned Functions in Julia
+
+This section is going to fit a linear regression model to the simulated wallcreeper data using Julia's built-in functions, and then we will try ot match the output from the R package DHARMa, knowing that if this is difficult we can always drop into R for such things.
+
+```{julia}
+using GLM, StatsBase
+
+data = (; x = x, y = y)
+model = lm(@formula(y ~ x), data)
+model
+```
+
+### 5.3.2 Goodness-of-fit assessment
+
+THe book prints out the residuals, which we can do also, but it also gives the code, but not the plot, of a histogram. I'll display it here, although it isn't that useful for such a small dataset. 
+```{julia}
+histogram(residuals(model),
+    bins = 20,
+    xlabel = "Residuals",
+    ylabel = "Frequency",
+    title = "Histogram of Residuals"
+    )
+```
+
+
+### 5.3.3 Computing Predictions
+
+```{julia}
+predictions = predict(model)
+predictions
+```
+
+## 5.4 Bayesian Analysis
+
+We will translate the JAGS version of the linear regression model into a Bayesian analysis using Julia's Turing package. Now we start to see some major differences between the way you would approach this is BUGS/JAGS and how you do it in Turing (or more generally using a HMC/NUTS sampler).
+
+In the JAGS code, you put everything into the model block, including priors, likelihood, posterior predictive checks, derived residuals, etc. In Turing, this would break the NUTS sampler. In JAGS, the model string is a scripting language telling JAGS what nodes to track during its Gibbs sampling loops. In Turing, the @model macro defines a strict probabilistic log-density target for the sampler. Everything else, residuals, fit statistics, predictive datasets, etc, is just standard Julia code applied to the resuling DataFrame or Chain. Since Julia is fast, we don't have to convert this into a different language such as C++.
+
+::: {.callout-note}
+The Turing philosophy is: fit the parameters in the model, generate predictions outside the model.
+:::
+
+```{julia}
+#| output: false
+
+using Turing, FlexiChains, MCMCDiagnosticTools
+
+@model function linear_regression(x, y)
+  # Priors. tau = 0.0001 is sd = 100
+    α ~ Normal(0, 100)
+    β ~ Normal(0, 100)
+    σ ~ Uniform(0, 100)
+
+  # Likelihood
+    μ = α .+ β .* x
+    y ~ product_distribution(Normal.(μ))
+end
+
+model = linear_regression(x, y)
+chains = sample(model, NUTS(), MCMCThreads(), 10000, 4; progress=false)
+```
+
+```{julia}
+summarystats(chains)
+``` 
+Alpha and beta are close, sigma is very different.
+
+Now we can check for convergence.
+
+```{julia}
+plot(chains; size=(800,600))
+```
+
+```{julia}
+
+# Extract parameter vectors from the chain
+alpha_post = vec(Array(chains[:α]))
+beta_post  = vec(Array(chains[:β]))
+sigma_post = vec(Array(chains[:σ]))
+
+S = length(alpha_post) # Number of posterior draws
+fit = zeros(S)         # Sum of squares for actual data
+fit_new = zeros(S)     # Sum of squares for new data
+
+# Generate y.new and compute discrepancies for every posterior draw
+for s in 1:S
+    # 1. Expected values for this iteration
+    μ = alpha_post[s] .+ beta_post[s] .* x
+    
+    # 2. Generate replicate dataset
+    y_new = rand.(Normal.(μ, sigma_post[s]))
+    
+    # 3. Calculate squared residuals
+    fit[s]     = sum((y .- μ).^2)
+    fit_new[s] = sum((y_new .- μ).^2)
+end
+
+# Calculate the Bayesian p-value (proportion of times fit_new > fit)
+bp_val = mean(fit_new .> fit)
+println("Bayesian p-value: ", round(bp_val, digits=3))
+```

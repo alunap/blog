@@ -1,8 +1,11 @@
 project:
   type: website
+  resources:
+    - CNAME
 
 website:
   title: "A Walk on the Wild Side"
+  site-url: "https://blog.aprhisiart.uk"
   navbar:
     right:
       - about.qmd
@@ -16,5 +19,3 @@ format:
     css: styles.css
 execute: 
   freeze: auto
-
-
