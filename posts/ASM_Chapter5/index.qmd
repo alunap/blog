@@ -153,6 +153,8 @@ plot(chains; size=(800,600))
 
 ### 5.4.2 GOF and Posterior Predictive Checks
 
+To replicate the `fit` and `fit.new` discrepancy measures from JAGS, we extract the posterior samples and calculate the sums-of-squares in standard Julia. This approach is lightning-fast and mathematically identical to the JAGS output.
+
 ```{julia}
 
 # Extract parameter vectors from the chain
@@ -166,13 +168,13 @@ fit_new = zeros(S)     # Sum of squares for new data
 
 # Generate y.new and compute discrepancies for every posterior draw
 for s in 1:S
-    # 1. Expected values for this iteration
+    # Expected values for this iteration
     μ = @. α_post[s] + β_post[s] * x
     
-    # 2. Generate replicate dataset
+    # Generate replicate dataset
     y_new = rand.(Normal.(μ, σ_post[s]))
     
-    # 3. Calculate squared residuals
+    # Calculate squared residuals
     fit[s]     = sum((y .- μ).^2)
     fit_new[s] = sum((y_new .- μ).^2)
 end
