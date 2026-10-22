@@ -270,11 +270,10 @@ display(p)
 
 ## 5.7 Maximum Likelihood Estimation
 
-First, we will do a more-or-less direct translation of the R code for maximum likelihood estimation into Julia.
+We will do a more-or-less direct translation of the R code for maximum log-likelihood estimation into Julia.
 
 ```{julia}
-using Optim, Turing
-using Distributions
+using Optim
 
 # Define the NLL function
 function NLL(params, y, x)
@@ -293,7 +292,7 @@ end
 # Minimize the NLL to find MLEs
 inits = [0.0, 0.0, 0.0]
 
-# Wrap NLL in a function so Optim only sees `params`
+# Wrap NLL in a function for Optim
 objective(params) = NLL(params, y, x)
 
 # Run optimization using BFGS
