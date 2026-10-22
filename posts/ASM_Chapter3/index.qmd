@@ -1,7 +1,7 @@
 ---
 title: "ASM Chapter 3"
-author: "Alun ap Rhisiart"
-date: "10/05/2026"
+author: "Dr Alun ap Rhisiart"
+date: "2026-10-02"
 categories: [code, julia, statistics, asm, ecology]
 execute:
   echo: true
@@ -11,7 +11,7 @@ engine: julia
 ---
 # About ASM
 
-Applied Statistical Modelling for Ecologists (ASM) by Marc Kéry & Kenneth F. Kellner is a fantastic resource for quantitative ecologists looking to deepen their understanding of statistical modeling techniques. It is not as 'advanced' as Applied Hierarchical Modeling for Ecology vols 1 & 2 (AHM), or Integrated Population Models (IPM), but it provides a solid foundation for understanding and applying statistical models in ecological research. It takes a Rosetta Stone approach, with examples in JAGS, Stan, NIMBLE, TMB, and 'MLE-DIY'. But, what statistical Rosetta Stone is complete without a Julia implementation? You could argue the same about a Python implementation, but although I commonly use Python for data engineering and Machine Learning tasks, I never use it for statistics, so I will leave that to someone else.
+Applied Statistical Modelling for Ecologists (ASM) by Marc Kéry & Kenneth F. Kellner is a fantastic resource for quantitative ecologists looking to deepen their understanding of statistical modeling techniques. It is not as 'advanced' as Applied Hierarchical Modeling for Ecology vols 1 & 2 (AHM), or Integrated Population Models (IPM), but it provides a solid foundation for understanding and applying statistical models in ecological research. It takes a Rosetta Stone approach, with examples in JAGS, Stan, NIMBLE, TMB, and 'DIY-MLE'. But, what statistical Rosetta Stone is complete without a Julia implementation? You could argue the same about a Python implementation, but although I commonly use Python for data engineering and Machine Learning tasks, I never use it for statistics, so I will leave that to someone else.
 
 When I read for my BSc there was a course in statistics, and I enjoyed it because it was very practical. It was statistics that let me make sense of the data I collected and draw conclusions. Back then, it was all about using a cookbook, namely *Biometry* by Sokal & Rohlf. Inside the front and rear covers was a table, which you would consult to see, depending on number of variables and type of variables, which type of Null Hypothesis Significance Test (NHST) you should use: t-test, X-square, ANOVA, ANCOVA, etc. Each had its own table for looking up the significance level.
 

@@ -1,7 +1,7 @@
 ---
 title: "ASM Chapter 4"
-author: "Alun ap Rhisiart"
-date: "10/12/2026"
+author: "Dr Alun ap Rhisiart"
+date: "2026-10-12"
 categories: [code, julia, statistics, asm, ecology]
 execute:
   echo: true
@@ -28,44 +28,42 @@ y1000 <- rnorm(n = 1000, mean = 600, sd = 30)
 """
 @rget y10 y1000
 
-truth = (mean=600, sd=30)
+truth = (mean = 600, sd = 30)
 first(y1000, 10)
 ```
 
 Next, eyeball the data, which will check that it looks the same as in the book.
 
 ```{julia}
-p1 = histogram(y10,
-    color=:grey,
-    xlims=(500, 700),
-    bins=5,
-    xlabel="y10",
-    ylabel="Frequency",
-    legend=false
+p1 = histogram(
+    y10,
+    color = :grey,
+    xlims = (500, 700),
+    bins = 5,
+    xlabel = "y10",
+    ylabel = "Frequency",
+    legend = false,
 )
 
-p2 = histogram(y1000,
-    color=:grey,
-    bins=10,
-    xlabel="y1000",
-    legend=false
-)
+p2 = histogram(y1000, color = :grey, bins = 10, xlabel = "y1000", legend = false)
 
 # Combine in a 1x2 layout
-plot(p1, p2, layout=(1, 2), size=(800, 400))
+plot(p1, p2, layout = (1, 2), size = (800, 400))
 ```
+
+## 4.3 The 'Canned' Example
 
 For the 'canned' example, the book uses lm(). We can use GLM.jl for this. It takes an object that implements the Tables.jl inteface, not a vector, so we just wrap it in a DataFrame.
 
 ```{julia}
 using GLM
 
-y10lm = lm(@formula(y10 ~ 1), DataFrame(y10=y10))
-y1000lm = lm(@formula(y1000 ~ 1), DataFrame(y1000=y1000))
+y10lm = lm(@formula(y10 ~ 1), DataFrame(y10 = y10))
+y1000lm = lm(@formula(y1000 ~ 1), DataFrame(y1000 = y1000))
 y1000lm
 ```
 
-## Maximum Likelihood Estimation
+## 4.7.2 Maximum Likelihood Estimation
 
 To keep in line with the book we will also do this manually, using idiomatic Julia where appropriate.
 
@@ -73,18 +71,18 @@ To keep in line with the book we will also do this manually, using idiomatic Jul
 using Random, Optim, ForwardDiff, ADTypes
 
 # Optim requires arrays of floats, not integers
-starts = [550.0, 25.0] 
+starts = [550.0, 25.0]
 
 # Objective Function (Negative Log-Likelihood)
 function NLL(param, y)
     pop_mean = param[1]
     pop_sd = param[2]
-    
+
     # Catch negative standard deviations so the optimizer doesn't crash
     if pop_sd <= 0.0
         return Inf
     end
-    
+
     # Equivalent to -sum(dnorm(y, mean=pop_mean, sd=pop_sd, log=TRUE))
     return -loglikelihood(Normal(pop_mean, pop_sd), y)
 end
@@ -145,7 +143,7 @@ end
 
 # Sampling
 model = model_4_4(y1000)
-chains = sample(model, NUTS(), MCMCThreads(), 10000, 4; progress=false)
+chains = sample(model, NUTS(), MCMCThreads(), 10000, 4; progress = false)
 ```
 
 After sampling, we can calculate the population variance from the posterior draws of the standard deviation rather than relying on the deterministic variable `pop_var` defined in the model.
@@ -166,12 +164,14 @@ Now we can examine the posterior distribution of the parameters.
 summarystats(chains)
 ```
 
+This closely matches the results from NIMBLE given in the book.
+
 ## Trace plots
 
 Getting trace and density plots from the chains is very straightforward.
 
 ```{julia}
-plot(chains; size=(800,600))
+plot(chains; size = (800, 600))
 ```
 
 There are lots of other plotting options, shown here: https://juliabayes.org/FlexiChains.jl/stable/plotting

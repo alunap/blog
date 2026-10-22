@@ -1,14 +1,13 @@
 ---
 title: "ASM Chapter 5"
-author: "Alun ap Rhisiart"
-date: "10/17/2026"
+author: "Dr Alun ap Rhisiart"
+date: "2026-10-21"
 categories: [code, julia, statistics, asm, ecology]
 execute:
   echo: true
   warning: false
   output: true
 engine: julia
-draft: true
 ---
 
 Chapter 5 of Applied Statistical Modelling for Ecologists, by Marc Kéry and Kenneth Kellner, focuses on Ordinary Linear Regression. This chapter also gets in the interesting subject of Post Predictive Checks and Goodness Of Fit.
@@ -23,12 +22,9 @@ $$\epsilon_i\sim{Normal(0, \sigma^2)}$$
 So, we have an overall intercept, a coefficient for the effect of x, which will be a regression line, and some scatter around that line which is normally distributed but centered on the line itself.
 
 ## 5.2 Data generation
-As usual, the data is simulated, so we know the real value of the parameters, and can check that our model can recover them.
+As usual, the data is simulated, so we know the real value of the parameters, and can check that our model can recover them. 
 
 ```{julia}
-using Random
-
-Random.seed!(5)
 n = 16     # number of years 
 var = 25 # residual variance
 
@@ -58,7 +54,7 @@ scatter(1989 .+ x, y, xlabel="Year", ylabel="Wallcreeper Count", title="Simulate
 
 ## 5.3 Analysis with Canned Functions in Julia
 
-This section is going to fit a linear regression model to the simulated wallcreeper data using Julia's built-in functions, and then we will try ot match the output from the R package DHARMa, knowing that if this is difficult we can always drop into R for such things.
+This section is going to fit a linear regression model to the simulated wallcreeper data using Julia's built-in functions.
 
 ```{julia}
 using GLM, StatsBase
@@ -71,6 +67,7 @@ model
 ### 5.3.2 Goodness-of-fit assessment
 
 THe book prints out the residuals, which we can do also, but it also gives the code, but not the plot, of a histogram. I'll display it here, although it isn't that useful for such a small dataset. 
+
 ```{julia}
 histogram(residuals(model),
     bins = 20,
@@ -80,12 +77,34 @@ histogram(residuals(model),
     )
 ```
 
-
 ### 5.3.3 Computing Predictions
 
+Next we get the predictions from the model. In this case there is an identity link function, so the prediction come directly from the linear predictor without any transformation. That is, $\hat{y} = \alpha + \beta x_i$.
+
+::: {.callout-note}
+ Kéry & Kellner's R code manually calculates the interval using 1.96 `(pred$fit - 1.96 * pred$se.fit)`. That is an asymptotic approximation (assuming infinite degrees of freedom). Julia's predict(..., interval=:confidence) uses the exact Student's t-distribution critical value based on the model's actual residual degrees of freedom. This means Julia's frequentist ribbon will be slightly more statistically strictly correct than the manual 1.96 calculation in the ASM book (though practically, with enough data points, the visual difference is negligible).
+:::
+
 ```{julia}
-predictions = predict(model)
-predictions
+using DataFrames
+
+# Create a dense grid of x-values for prediction
+xpred = range(1, 16, length=100)
+newdata = DataFrame(x = xpred)
+
+# Get predictions and 95% Confidence Intervals directly
+# GLM returns a DataFrame with columns: :prediction, :lower, and :upper
+preds = predict(model, newdata, interval=:confidence, level=0.95)
+
+# Assemble the equivalent of pred.table
+pred_table = DataFrame(
+    x = newdata.x,
+    point_est = preds.prediction,
+    LCL = preds.lower,
+    UCL = preds.upper
+)
+
+first(pred_table, 5)
 ```
 
 ## 5.4 Bayesian Analysis
@@ -111,7 +130,7 @@ using Turing, FlexiChains, MCMCDiagnosticTools
 
   # Likelihood
     μ = α .+ β .* x
-    y ~ product_distribution(Normal.(μ))
+    y ~ product_distribution(Normal.(μ, σ))
 end
 
 model = linear_regression(x, y)
@@ -121,7 +140,8 @@ chains = sample(model, NUTS(), MCMCThreads(), 10000, 4; progress=false)
 ```{julia}
 summarystats(chains)
 ``` 
-Alpha and beta are close, sigma is very different.
+
+These figures closely match the output from JAGS.
 
 Now we can check for convergence.
 
@@ -129,24 +149,26 @@ Now we can check for convergence.
 plot(chains; size=(800,600))
 ```
 
+## 5.4.2 GOF and Posterior Predictive Checks
+
 ```{julia}
 
 # Extract parameter vectors from the chain
-alpha_post = vec(Array(chains[:α]))
-beta_post  = vec(Array(chains[:β]))
-sigma_post = vec(Array(chains[:σ]))
+α_post = vec(Array(chains[:α]))
+β_post  = vec(Array(chains[:β]))
+σ_post = vec(Array(chains[:σ]))
 
-S = length(alpha_post) # Number of posterior draws
+S = length(α_post) # Number of posterior draws
 fit = zeros(S)         # Sum of squares for actual data
 fit_new = zeros(S)     # Sum of squares for new data
 
 # Generate y.new and compute discrepancies for every posterior draw
 for s in 1:S
     # 1. Expected values for this iteration
-    μ = alpha_post[s] .+ beta_post[s] .* x
+    μ = α_post[s] .+ β_post[s] .* x
     
     # 2. Generate replicate dataset
-    y_new = rand.(Normal.(μ, sigma_post[s]))
+    y_new = rand.(Normal.(μ, σ_post[s]))
     
     # 3. Calculate squared residuals
     fit[s]     = sum((y .- μ).^2)
@@ -157,3 +179,138 @@ end
 bp_val = mean(fit_new .> fit)
 println("Bayesian p-value: ", round(bp_val, digits=3))
 ```
+
+As with the book, we have a value close to 0.5, so a decent fit.
+
+```{julia}
+# Replicate the JAGS goodness-of-fit scatter plot
+scatter(fit, fit_new, 
+    color = (:black), 
+    markershape = :circle, 
+    markerstrokewidth = 0,
+    xlabel = "Discrepancy actual data (fit)",
+    ylabel = "Discrepancy replicate data (fit.new)",
+    title = "Bayesian p-value = $(round(bp_val, digits=3))",
+    legend = false,
+    framestyle = :box,
+    aspect_ratio = :equal # Keeps the 1:1 line perfectly diagonal
+)
+
+# Add 1:1 reference line
+min_val = min(minimum(fit), minimum(fit_new))
+max_val = max(maximum(fit), maximum(fit_new))
+plot!([min_val, max_val], [min_val, max_val], color=:red, linewidth=2)
+```
+
+Finally, we will plot the Credible Intervals (CRI) like figure 5.4 in the book. First obtain predictions and calculate offset distances for the plot ribbon.
+Note that in R the plots are built using polygon and absolute values. In Julia we use the ribbon command and provide the lower and upper offsets relative to the mean prediction.
+
+```{julia}
+#| output: false
+
+using Statistics
+
+# Matrix of predictions: rows = length(xpred), cols = number of MCMC draws
+predictions = [α_post[s] + β_post[s] * xp for xp in xpred, s in 1:length(α_post)]
+
+# Calculate Bayesian point estimates (post. means) and 95% CRI
+BPE = vec(mean(predictions, dims=2))
+LPB = [quantile(row, 0.025) for row in eachrow(predictions)]
+UPB = [quantile(row, 0.975) for row in eachrow(predictions)]
+
+# Calculate offset distances required by Plots.jl 'ribbon'
+BPE_rib_lower = BPE .- LPB
+BPE_rib_upper = UPB .- BPE
+```
+
+Now we can recreate figure 5.4
+
+```{julia}
+# Base plot: Raw data
+p = scatter(x .+ 1989, y,
+    xlabel = "Year",
+    ylabel = "Prop. occupied (%)",
+    ylims = (25, 50),
+    color = :black, 
+    fillalpha = 0.5,
+    markershape = :circle, # pch = 16
+    markersize = 6,        # cex = 1.5
+    markerstrokewidth = 0,
+    framestyle = :axes,    # frame = FALSE
+    legend = :bottomleft   # Places legend automatically
+)
+
+# CIs from frequentist inference with GLM/lm() (Section 5.3.3)
+# Requires calculating offsets: freq_lower_dist = freq_fit .- freq_lower, etc.
+freq_fit = pred_table.point_est
+freq_lower_dist = freq_fit .- pred_table.LCL
+freq_upper_dist = pred_table.UCL .- freq_fit
+
+plot!(p, xpred .+ 1989, freq_fit,
+    ribbon = (freq_lower_dist, freq_upper_dist),
+    color = :blue,
+    fillalpha = 0.1,       # rgb(0, 0, 1, 0.1)
+    linewidth = 2,
+    label = "Maximum likelihood"
+)
+
+# CRIs from Bayesian inference
+plot!(p, xpred .+ 1989, BPE,
+    ribbon = (BPE_rib_lower, BPE_rib_upper),
+    color = :red,
+    fillalpha = 0.2,       # rgb(1, 0, 0, 0.2)
+    linewidth = 2,
+    label = "Posterior inference"
+)
+
+display(p)
+```
+
+## 5.7 Maximum Likelihood Estimation
+
+First, we will do a more-or-less direct translation of the R code for maximum likelihood estimation into Julia.
+
+```{julia}
+using Optim, Turing
+using Distributions
+
+# Define the NLL function
+function NLL(params, y, x)
+    α = params[1]
+    β  = params[2]
+    σ = exp(params[3]) # convert from log scale
+    n = length(y)
+
+    # Vectorized calculation using Julia's broadcasting dot (.) syntax
+    μ = α .+ β .* x
+    LL = logpdf.(Normal.(μ, σ), y)
+    
+    return -sum(LL)
+end
+
+# Minimize the NLL to find MLEs
+inits = [0.0, 0.0, 0.0]
+
+# Wrap NLL in an anonymous function so Optim only sees `params`
+objective(params) = NLL(params, y, x)
+
+# Run optimization using BFGS
+# Autodiff is optional but highly recommended in Julia for exact gradients
+out5_7 = optimize(objective, inits, BFGS(), autodiff = AutoForwardDiff())
+
+# Extract parameters
+# Optim.minimizer returns the optimal parameters
+diy_params = Optim.minimizer(out5_7)
+
+diy_est = [
+    diy_params[1],        # alpha
+    diy_params[2],        # beta
+    diy_params[3]         # log.sigma
+]
+
+# To get the Standard Errors (SEs), you can extract the inverse Hessian:
+# hessian = ForwardDiff.hessian(objective, diy_params)
+# ses = sqrt.(diag(inv(hessian)))
+
+```
+That concludes Chapter 5. I haven't tried to reproduce all the DHARMa output nor all of the plots, but we have covered most of it.
