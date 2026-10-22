@@ -48,7 +48,7 @@ using StatsPlots, Distributions
 
 ϵ = eps
 x = 1:n
-y = truth.α .+ truth.β .* x .+ ϵ
+y = @. truth.α + truth.β * x + ϵ
 scatter(1989 .+ x, y, xlabel="Year", ylabel="Wallcreeper Count", title="Simulated Wallcreeper Data")
 ```
 
@@ -111,7 +111,9 @@ first(pred_table, 5)
 
 We will translate the JAGS version of the linear regression model into a Bayesian analysis using Julia's Turing package. Now we start to see some major differences between the way you would approach this in BUGS/JAGS and how you do it in Turing (or more generally using a HMC/NUTS sampler).
 
-In the JAGS code, you put everything into the model block, including priors, likelihood, posterior predictive checks, derived residuals, etc. In Turing, this would break the NUTS sampler. In JAGS, the model string is a scripting language telling JAGS what nodes to track during its Gibbs sampling loops. In Turing, the @model macro defines a strict probabilistic log-density target for the sampler. Everything else, residuals, fit statistics, predictive datasets, etc, is just standard Julia code applied to the resuling DataFrame or Chain. Since Julia is fast, we don't have to convert this into a different language such as C++.
+In the JAGS code, you put everything into the model block, including priors, likelihood, posterior predictive checks, derived residuals, etc. In Turing, this would break the NUTS sampler. In JAGS, the model string is a scripting language telling JAGS what nodes to track during its Gibbs sampling loops. In Turing, the @model macro defines a strict probabilistic log-density target for the sampler. Everything else, residuals, fit statistics, predictive datasets, etc, is just standard Julia code applied to the resuling DataFrame or Chain. Since Julia is fast, we don't have to convert this into a different language such as C++. 
+
+NB the `@.` macro at the start of a statement just means to broadcast each of the operations element-wise over arrays. You can also, (and you see I do) just add the `.` broadcast operator for each one.
 
 ::: {.callout-note}
 The Turing philosophy is: fit the parameters in the model, generate predictions outside the model.
@@ -129,7 +131,7 @@ using Turing, FlexiChains, MCMCDiagnosticTools
     σ ~ Uniform(0, 100)
 
   # Likelihood
-    μ = α .+ β .* x
+    μ = @. α + β * x
     y ~ product_distribution(Normal.(μ, σ))
 end
 
@@ -165,7 +167,7 @@ fit_new = zeros(S)     # Sum of squares for new data
 # Generate y.new and compute discrepancies for every posterior draw
 for s in 1:S
     # 1. Expected values for this iteration
-    μ = α_post[s] .+ β_post[s] .* x
+    μ = @. α_post[s] + β_post[s] * x
     
     # 2. Generate replicate dataset
     y_new = rand.(Normal.(μ, σ_post[s]))
@@ -282,7 +284,7 @@ function NLL(params, y, x)
     n = length(y)
 
     # Vectorized calculation using Julia's broadcasting dot (.) syntax
-    μ = α .+ β .* x
+    μ = @. α + β * x
     LL = logpdf.(Normal.(μ, σ), y)
     
     return -sum(LL)
