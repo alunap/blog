@@ -10,7 +10,7 @@ execute:
 engine: julia
 ---
 
-We turn to Chapter 4 of Applied Statistical Modelling for Ecologists, by Marc Kéry and Kenneth Kellner. In this chapter we turn to a comparison of different statistical modelling approaches for ecological data. The book considers jagsUI, NIMBLE, TMB, Stan, and Maximum Likelihood. I add Turing.jl to the mix, with a brief discussion of other Julia packages. This discussion of Maximum Likelihood Estimation in this chapter is the clearest I have encountered.
+We turn to Chapter 4 of Applied Statistical Modelling for Ecologists, by Marc Kéry and Kenneth Kellner. In this chapter we turn to a comparison of different statistical modelling approaches for ecological data. The book considers jagsUI, NIMBLE, TMB, Stan, and Maximum Likelihood. I add Turing.jl to the mix, with a brief discussion of other Julia packages. The discussion of Maximum Likelihood Estimation in this chapter is the clearest I have encountered.
 
 First we pull in any packages we will need.
 
@@ -174,7 +174,7 @@ Getting trace and density plots from the chains is very straightforward.
 plot(chains; size = (800, 600))
 ```
 
-There are lots of other plotting options, shown here: https://juliabayes.org/FlexiChains.jl/stable/plotting
+There are lots of other plotting options, shown here: <https://juliabayes.org/FlexiChains.jl/stable/plotting>
 
 Diagnostics any of the following (and more):
 
