@@ -111,7 +111,7 @@ first(pred_table, 5)
 
 We will translate the JAGS version of the linear regression model into a Bayesian analysis using Julia's Turing package. Now we start to see some major differences between the way you would approach this in BUGS/JAGS and how you do it in Turing (or more generally using a HMC/NUTS sampler).
 
-In the JAGS code, you put everything into the model block, including priors, likelihood, posterior predictive checks, derived residuals, etc. In Turing, this would break the NUTS sampler. In JAGS, the model string is a scripting language telling JAGS what nodes to track during its Gibbs sampling loops. In Turing, the @model macro defines a strict probabilistic log-density target for the sampler. Everything else, residuals, fit statistics, predictive datasets, etc, is just standard Julia code applied to the resuling DataFrame or Chain. Since Julia is fast, we don't have to convert this into a different language such as C++. 
+In the JAGS code, you put everything into the model block, including priors, likelihood, posterior predictive checks, derived residuals, etc. In Turing, this would break the NUTS sampler. In JAGS, the model string is a scripting language telling JAGS what nodes to track during its Gibbs sampling loops. In Turing, the @model macro defines a strict probabilistic log-density target for the sampler. Everything else, residuals, fit statistics, predictive datasets, etc, is just standard Julia code applied to the resulting DataFrame or Chain. Since Julia is fast, we don't have to convert this into a different language such as C++. 
 
 NB the `@.` macro at the start of a statement just means to broadcast each of the operations element-wise over arrays. You can also, (and you see I do) just add the `.` broadcast operator for each one.
 
@@ -151,7 +151,7 @@ Now we can check for convergence.
 plot(chains; size=(800,600))
 ```
 
-## 5.4.2 GOF and Posterior Predictive Checks
+### 5.4.2 GOF and Posterior Predictive Checks
 
 ```{julia}
 
@@ -205,7 +205,7 @@ plot!([min_val, max_val], [min_val, max_val], color=:red, linewidth=2)
 ```
 
 Finally, we will plot the Credible Intervals (CRI) like figure 5.4 in the book. First obtain predictions and calculate offset distances for the plot ribbon.
-Note that in R the plots are built using polygon and absolute values. In Julia we use the ribbon command and provide the lower and upper offsets relative to the mean prediction.
+Note that in R the plots are built using polygon and absolute values. In Julia we use the ribbon keyword and provide the lower and upper offsets relative to the mean prediction.
 
 ```{julia}
 #| output: false
