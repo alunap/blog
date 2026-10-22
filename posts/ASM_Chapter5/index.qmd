@@ -109,7 +109,7 @@ first(pred_table, 5)
 
 ## 5.4 Bayesian Analysis
 
-We will translate the JAGS version of the linear regression model into a Bayesian analysis using Julia's Turing package. Now we start to see some major differences between the way you would approach this is BUGS/JAGS and how you do it in Turing (or more generally using a HMC/NUTS sampler).
+We will translate the JAGS version of the linear regression model into a Bayesian analysis using Julia's Turing package. Now we start to see some major differences between the way you would approach this in BUGS/JAGS and how you do it in Turing (or more generally using a HMC/NUTS sampler).
 
 In the JAGS code, you put everything into the model block, including priors, likelihood, posterior predictive checks, derived residuals, etc. In Turing, this would break the NUTS sampler. In JAGS, the model string is a scripting language telling JAGS what nodes to track during its Gibbs sampling loops. In Turing, the @model macro defines a strict probabilistic log-density target for the sampler. Everything else, residuals, fit statistics, predictive datasets, etc, is just standard Julia code applied to the resuling DataFrame or Chain. Since Julia is fast, we don't have to convert this into a different language such as C++.
 
@@ -291,7 +291,7 @@ end
 # Minimize the NLL to find MLEs
 inits = [0.0, 0.0, 0.0]
 
-# Wrap NLL in an anonymous function so Optim only sees `params`
+# Wrap NLL in a function so Optim only sees `params`
 objective(params) = NLL(params, y, x)
 
 # Run optimization using BFGS
@@ -313,4 +313,7 @@ diy_est = [
 # ses = sqrt.(diag(inv(hessian)))
 
 ```
+
+Once again we have a close match with the R DIY-MLE output
+
 That concludes Chapter 5. I haven't tried to reproduce all the DHARMa output nor all of the plots, but we have covered most of it.
