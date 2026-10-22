@@ -176,7 +176,7 @@ plot(chains; size = (800, 600))
 
 There are lots of other plotting options, shown here: <https://juliabayes.org/FlexiChains.jl/stable/plotting>
 
-Diagnostics any of the following (and more):
+Diagnostics can be any of the following (and more):
 
 * `mean(chains)` # posterior mean for each parameter
 * `median(chains)` # posterior median for each parameter

@@ -10,9 +10,9 @@ execute:
 engine: julia
 ---
 
-Chapter 5 of Applied Statistical Modelling for Ecologists, by Marc Kéry and Kenneth Kellner, focuses on Ordinary Linear Regression. This chapter also gets in the interesting subject of Post Predictive Checks and Goodness Of Fit.
+Chapter 5 of Applied Statistical Modelling for Ecologists, by Marc Kéry and Kenneth Kellner, focuses on Ordinary Linear Regression. This chapter also gets in the interesting subject of Posterior Predictive Checks and Goodness Of Fit.
 
-In this chapter, we use a simulated dataset about wallcreepers (which we don't have in the UK, grrrh). I guess this is very familiar to most people. If the value of our dependent variable $y_i$ varies acconding to independent variable $x_i$, then
+In this chapter, we use a simulated dataset about wallcreepers (which we don't have in the UK, grrrh). I guess this is very familiar to most people. If the value of our dependent variable $y_i$ varies according to independent variable $x_i$, then
 $$\mu = \alpha + \beta\cdot x_i$$
 We take this to deterministic, linear part to be the mean, or expected value.
 $$y_i\sim{Normal(\alpha + \beta\cdot x_i, \sigma^2)}$$
