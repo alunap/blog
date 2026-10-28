@@ -324,7 +324,7 @@ Once again we have a close match with the R DIY-MLE output
 
 In the last section of each chapter I compare the efficiency of the HMC/NUTS model in Julia with the JAGs model in R. All run on a MacBook Pro with M5 Pro chip, 24GB RAM.
 
-I ran the jagsUI model in RStudio and saved the MCMC metrics to a CSV file, which we will read into Julia for comparison. Here is the R code, added at the end of the 5.4.1 code:
+I ran the jagsUI model in RStudio and saved the MCMC metrics to a CSV file, which we will read into Julia for comparison. Here is the R code, added at the end of the 5.4.1 section:
 
 ```{{r}}
 # Output metrics for comparison with Turing
@@ -354,7 +354,7 @@ jags_metrics <- data.frame(sampler  = "JAGS",
 jags_metrics$min_ess_s  <- jags_metrics$min_ess  / elapsed
 jags_metrics$mean_ess_s <- jags_metrics$mean_ess / elapsed
 
-write.csv(jags_metrics, "jags_mcmc_metrics.csv", row.names = FALSE)
+write.csv(jags_metrics, "jags_mcmc5_metrics.csv", row.names = FALSE)
 ```
 
 Back in Julia, we read the R output file and compare it with the Turing model metrics. Here, Turing ran 5000 iterations on 4 chains to make it comparable. JAGS saved 20,000 draws (5,000 per chain for 4 chains, plus 1,000 adaptation). By setting Turing to 5000 iterations it also saved 20,000 draws. This effects overall time, but not ess per second.
