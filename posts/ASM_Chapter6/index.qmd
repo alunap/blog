@@ -1,0 +1,76 @@
+---
+title: "ASM Chapter 6"
+author: "Dr Alun ap Rhisiart"
+date: "2026-10-28"
+categories: [code, julia, statistics, asm, ecology]
+execute:
+  echo: true
+  warning: false
+  output: true
+engine: julia
+draft: true
+---
+
+Chapter 6 of Applied Statistical Modelling for Ecologists, by Marc Kéry and Kenneth Kellner, considers the case of two predictors in a linear regression model. Traditionally this would be a t-test, comparing two means across groups defined by one categorical predictor, but here we extend it to include an additional continuous predictor.
+
+```{julia}
+using RCall, DataFrames
+
+R"""
+set.seed(61)
+n1 <- 60
+n2 <- 40
+μ1 <- 105.0
+μ2 <- 77.5
+σ <- 2.75
+
+n <- n1 + n2
+y1 <- rnorm(n1, μ1, σ)
+y2 <- rnorm(n2, μ2, σ)
+y <- c(y1, y2)
+
+x<- rep(c(0, 1), c(n1, n2))
+"""
+x = @rget x
+y = @rget y
+```
+
+```{julia}
+using GLM
+
+y_obs = DataFrame(y = y, x = x)
+model = lm(@formula(y ~ x), y_obs)
+model
+```
+
+```{julia}
+using HypothesisTests
+
+t_test_result = EqualVarianceTTest(y_obs.y[x .== 1], y_obs.y[x .== 0])
+t_test_result
+```
+
+```{julia}
+using Turing, FlexiChains, MCMCDiagnosticTools
+
+@model function linear_model(y, x)
+    α ~ Normal(0, 100)
+    β ~ Normal(0, 100)
+    σ ~ Uniform(1, 10)
+
+    μ = @. α + β * x
+    y ~ product_distribution(Normal.(μ, σ))
+end
+
+model_turing = linear_model(y_obs.y, y_obs.x)
+chains = sample(model_turing, NUTS(), MCMCThreads(), 1000, 4)
+summarystats(chains)
+```
+
+```{julia}
+α_post = vec(Array(chains[:α]))
+β_post  = vec(Array(chains[:β]))
+σ_post = vec(Array(chains[:σ]))
+
+mu2 = mean(α_post .+ β_post )
+```

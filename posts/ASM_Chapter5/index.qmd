@@ -135,8 +135,9 @@ using Turing, FlexiChains, MCMCDiagnosticTools
     y ~ product_distribution(Normal.(μ, σ))
 end
 
+n_chains = 4
 model = linear_regression(x, y)
-chains = sample(model, NUTS(), MCMCThreads(), 10000, 4; progress=false)
+chains = sample(model, NUTS(), MCMCThreads(), 10000, n_chains; progress=false)
 ```
 
 ```{julia}
@@ -318,5 +319,24 @@ diy_est = [
 ```
 
 Once again we have a close match with the R DIY-MLE output
+
+## Efficiency Comparison
+
+In the last section of each chapter I compare the efficiency of the HMC/NUTS model in Julia with the JAGs model in R.
+
+```{julia}
+#| output: false
+#| display: false
+include("../../files/model_comparison.jl")
+using .ModelComparison
+
+params_to_track = ["α", "β", "σ"]
+mcmcresult = compare_model_efficiency(model, n_chains, params_to_track, "../../files/jags_mcmc5_metrics.csv")
+```
+```{julia}
+println(mcmcresult)
+```
+
+The Turing model is significantly faster, which is as expected.
 
 That concludes Chapter 5. I haven't tried to reproduce all the DHARMa output nor all of the plots, but we have covered most of it.
