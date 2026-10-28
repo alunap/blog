@@ -322,21 +322,74 @@ Once again we have a close match with the R DIY-MLE output
 
 ## Efficiency Comparison
 
-In the last section of each chapter I compare the efficiency of the HMC/NUTS model in Julia with the JAGs model in R.
+In the last section of each chapter I compare the efficiency of the HMC/NUTS model in Julia with the JAGs model in R. All run on a MacBook Pro with M5 Pro chip, 24GB RAM.
+
+I ran the jagsUI model in RStudio and saved the MCMC metrics to a CSV file, which we will read into Julia for comparison. Here is the R code, added at the end of the 5.4.1 code:
+
+```{{r}}
+# Output metrics for comparison with Turing
+compare.params = c("alpha", "beta", "sigma")
+
+# Time the whole run (wall clock, includes adaptation + burnin)
+elapsed <- system.time({
+    fit <- jags(data     = dataList,
+            inits        = inits,
+            parameters.to.save = compare.params,  # keep this list IDENTICAL to Julia
+            model.file   = "model5.4.txt",
+            n.chains     = nc,
+            n.iter       = ni,
+            n.burnin     = nb,
+            n.thin       = nt,
+            parallel     = TRUE)
+})[["elapsed"]]
+
+# Per-parameter effective sample size, dropping derived quantities
+neff <- fit$summary[, "n.eff"]
+neff <- neff[!names(neff) %in% "deviance"]
+
+jags_metrics <- data.frame(sampler  = "JAGS",
+                           min_ess  = min(neff),
+                           mean_ess = mean(neff),
+                           seconds  = elapsed)
+jags_metrics$min_ess_s  <- jags_metrics$min_ess  / elapsed
+jags_metrics$mean_ess_s <- jags_metrics$mean_ess / elapsed
+
+write.csv(jags_metrics, "jags_mcmc_metrics.csv", row.names = FALSE)
+```
+
+Back in Julia, we read the R output file and compare it with the Turing model metrics. Here, Turing ran 5000 iterations on 4 chains to make it comparable. JAGS saved 20,000 draws (5,000 per chain for 4 chains, plus 1,000 adaptation). By setting Turing to 5000 iterations it also saved 20,000 draws. This effects overall time, but not ess per second.
 
 ```{julia}
 #| output: false
 #| display: false
 include("../../files/model_comparison.jl")
 using .ModelComparison
+using CSV
 
 params_to_track = ["α", "β", "σ"]
-mcmcresult = compare_model_efficiency(model, n_chains, params_to_track, "../../files/jags_mcmc5_metrics.csv")
+jags_metrics = CSV.read("../../files/jags_mcmc5_metrics.csv", DataFrame)
+mcmcresult = compare_model_efficiency(model, n_chains, params_to_track, jags_metrics)
 ```
+
 ```{julia}
 println(mcmcresult)
 ```
 
-The Turing model is significantly faster, which is as expected.
+The Turing model is significantly faster, which is as expected. In jagsUI, `parallel=TRUE` starts up multiple R processes to run the chains in parallel, which adds some overhead. Turing uses threads within a single Julia process, which is more efficient. This effects the wallclock figure. The key metric to focus on is ESS per second, which accounts for both sampling efficiency and computational time. A mean of around 8,000 effective sample size should be enough for estimating fine tail behaviour. 
+
+Let's see a plot.
+
+```{julia}
+
+metrics = ["min ESS/s", "mean ESS/s"]
+ymat    = permutedims(hcat(mcmcresult.min_ess_s, mcmcresult.mean_ess_s)) 
+
+groupedbar(metrics, ymat,
+           labels     = ["Turing" "JAGS"],  
+           ylabel     = "Effective sample size per second",
+           title      = "MCMC efficiency: jagsUI vs Turing.jl",
+           framestyle = :axes,
+           legend     = :topleft)
+```
 
 That concludes Chapter 5. I haven't tried to reproduce all the DHARMa output nor all of the plots, but we have covered most of it.
