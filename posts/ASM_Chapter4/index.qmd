@@ -123,6 +123,12 @@ println("Standard Errors (Mean, SD): ", std_errors)
 
 This is the main point about using Julia for Bayesian statistics. Let's build the same model in Turing.jl. Here, I'm including pop_var as a variable to track, but not estimate. We do this with the `:=` operator, which defines a deterministic relationship in the model. However, for a situation like this I would normally calculate this after the sampling, as shown below. 
 
+### A note on priors
+
+As I noted in the post about Chapter 3, while several distributions were introduced I was puzzled that Beta, Gamma, Exponential, and Cauchy were left out, and wondered what the priors would be like in later chapters. What we see in Chapter 4 and several later chapters is that the prior for sigma is Uniform for the JAGS examples, but half-Cauchy in the Stan example. Why is that? The purpose of using a Uniform prior is to be non-informative with a bounded range. However, Gelman (2006) showed that a Uniform prior on sigma is not truly non-informative, it has too much mass at higher values. The Cauchy distribution is the Student's t distribution with one degree of freedom. The half-Cauchy is bounded by 0 with thick tails, and has desirable regularization properties for scale parameters. However, JAGS struggles with the thick tails, so is often replaced with a Uniform prior in JAGS examples. 
+
+Since Turing is a HMC sampler (like Stan), I use the half-Cauchy here and in later chapters. However, the Stan team now recommends using an Exponential prior for scale parameters instead of the half-Cauchy, as it provides similar regularization properties with lighter tails and better computational behavior. Since this is a tutorial and we are following the book closely, I will stick with the half-Cauchy for consistency.
+
 ```{julia}
 #| output: false
 using Turing, FlexiChains, MCMCDiagnosticTools
@@ -131,8 +137,8 @@ using Turing, FlexiChains, MCMCDiagnosticTools
     # Priors
     # Note: BUGS dnorm(0, 0.0001) uses precision τ = 0.0001, 
     # which corresponds to variance 10,000 or SD = 100 in Turing.
-    pop_mean ~ Uniform(0, 5000)
-    pop_sd ~ Uniform(1, 100)
+    pop_mean ~ Normal(0, 100)
+    pop_sd ~ truncated(Cauchy(0, 10); lower=0)
 
     # Add derived quantity for variance if required
     pop_var := pop_sd^2

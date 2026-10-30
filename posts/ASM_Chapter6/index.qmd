@@ -14,7 +14,7 @@ draft: true
 Chapter 6 of Applied Statistical Modelling for Ecologists, by Marc Kéry and Kenneth Kellner, considers the case of two predictors in a linear regression model. Traditionally this would be a t-test, comparing two means across groups defined by one categorical predictor, but here we extend it to include an additional continuous predictor.
 
 ```{julia}
-using RCall, DataFrames
+using RCall, DataFrames, StatsPlots
 
 R"""
 set.seed(61)
@@ -46,7 +46,7 @@ model
 ```{julia}
 using HypothesisTests
 
-t_test_result = EqualVarianceTTest(y_obs.y[x .== 1], y_obs.y[x .== 0])
+t_test_result = EqualVarianceTTest(y_obs.y[x .== 0], y_obs.y[x .== 1])
 t_test_result
 ```
 
@@ -56,15 +56,20 @@ using Turing, FlexiChains, MCMCDiagnosticTools
 @model function linear_model(y, x)
     α ~ Normal(0, 100)
     β ~ Normal(0, 100)
-    σ ~ Uniform(1, 10)
+    σ ~ truncated(Cauchy(0, 10); lower=0)
 
     μ = @. α + β * x
     y ~ product_distribution(Normal.(μ, σ))
 end
 
 model_turing = linear_model(y_obs.y, y_obs.x)
-chains = sample(model_turing, NUTS(), MCMCThreads(), 1000, 4)
+chains = sample(model_turing, NUTS(), MCMCThreads(), 1000, 4; progress=false)
 summarystats(chains)
+```
+
+### Trace plots
+```{julia}
+plot(chains; size = (800, 600))
 ```
 
 ```{julia}

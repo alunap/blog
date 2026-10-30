@@ -1,7 +1,7 @@
 
 module ModelComparison
 
-using Turing, FlexiChains, MCMCDiagnosticTools, DataFrames, Statistics, CSV
+using Turing, FlexiChains, MCMCDiagnosticTools, DataFrames, Statistics
 
 export compare_model_efficiency
 

@@ -13,8 +13,8 @@ engine: julia
 Chapter 5 of Applied Statistical Modelling for Ecologists, by Marc Kéry and Kenneth Kellner, focuses on Ordinary Linear Regression. This chapter also gets in the interesting subject of Posterior Predictive Checks and Goodness Of Fit.
 
 In this chapter, we use a simulated dataset about wallcreepers (which we don't have in the UK, grrrh). I guess this is very familiar to most people. If the value of our dependent variable $y_i$ varies according to independent variable $x_i$, then
-$$\mu = \alpha + \beta\cdot x_i$$
-We take this to deterministic, linear part to be the mean, or expected value.
+$$\mu = \alpha + \beta\cdot x$$
+We take this deterministic, linear part to be the mean, or expected value.
 $$y_i\sim{Normal(\alpha + \beta\cdot x_i, \sigma^2)}$$
 We can also express this as a linear equation for the mean plus an error term.
 $$y_i = \alpha + \beta\cdot x_i + \epsilon_i$$
@@ -66,7 +66,7 @@ model
 
 ### 5.3.2 Goodness-of-fit assessment
 
-THe book prints out the residuals, which we can do also, but it also gives the code, but not the plot, of a histogram. I'll display it here, although it isn't that useful for such a small dataset. 
+The book prints out the residuals, which we can do also, but it also gives the code, but not the plot, of a histogram. I'll display it here, although it isn't that useful for such a small dataset. 
 
 ```{julia}
 histogram(residuals(model),
@@ -79,7 +79,7 @@ histogram(residuals(model),
 
 ### 5.3.3 Computing Predictions
 
-Next we get the predictions from the model. In this case there is an identity link function, so the prediction come directly from the linear predictor without any transformation. That is, $\hat{y} = \alpha + \beta x_i$.
+Next we get the predictions from the model. In this case there is an identity link function, so the predictions come directly from the linear predictor without any transformation. That is, $\hat{y} = \alpha + \beta x_i$.
 
 ::: {.callout-note}
  Kéry & Kellner's R code manually calculates the interval using 1.96 `(pred$fit - 1.96 * pred$se.fit)`. That is an asymptotic approximation (assuming infinite degrees of freedom). Julia's predict(..., interval=:confidence) uses the exact Student's t-distribution critical value based on the model's actual residual degrees of freedom. This means Julia's frequentist ribbon will be slightly more statistically strictly correct than the manual 1.96 calculation in the ASM book (though practically, with enough data points, the visual difference is negligible).
@@ -111,7 +111,7 @@ first(pred_table, 5)
 
 We will translate the JAGS version of the linear regression model into a Bayesian analysis using Julia's Turing package. Now we start to see some major differences between the way you would approach this in BUGS/JAGS and how you do it in Turing.
 
-In the JAGS code, you put everything into the model block, including priors, likelihood, posterior predictive checks, derived residuals, etc. In Turing, this slow down or even break the NUTS sampler. In JAGS, the model string is a scripting language telling JAGS what nodes to track during its Gibbs sampling loops. In Turing, the @model macro defines a strict probabilistic log-density target for the sampler. Everything else, residuals, fit statistics, predictive datasets, etc, is just standard Julia code applied to the resulting DataFrame or Chain (see 5.4.2 below). Since Julia is fast, we don't have to convert this into a different language such as C++. 
+In the JAGS code, you put everything into the model block, including priors, likelihood, posterior predictive checks, derived residuals, etc. In Turing, this slows down or may even break the NUTS sampler. In JAGS, the model string is a scripting language telling JAGS what nodes to track during its Gibbs sampling loops. In Turing, the @model macro defines a strict probabilistic log-density target for the sampler. Everything else, residuals, fit statistics, predictive datasets, etc, is just standard Julia code applied to the resulting DataFrame or Chain (see 5.4.2 below). Since Julia is fast, we don't have to convert this into a different language such as C++. 
 
 NB the `@.` macro at the start of a statement just means to broadcast each of the operations element-wise over arrays. You can also, (and you see I do) just add the `.` broadcast operator for each one.
 
@@ -128,7 +128,7 @@ using Turing, FlexiChains, MCMCDiagnosticTools
   # Priors. tau = 0.0001 is sd = 100
     α ~ Normal(0, 100)
     β ~ Normal(0, 100)
-    σ ~ Uniform(0, 100)
+    σ ~ truncated(Cauchy(0, 10); lower=0)
 
   # Likelihood
     μ = @. α + β * x
