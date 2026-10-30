@@ -435,7 +435,7 @@ jags_metrics$mean_ess_s <- jags_metrics$mean_ess / elapsed
 write.csv(jags_metrics, "jags_mcmc6_metrics.csv", row.names = FALSE)
 ```
 
-Back in Julia, we read the R output file and compare it with the Turing model metrics. Here, Turing ran 5000 iterations on 4 chains to make it comparable. JAGS saved 12,000 draws (3,000 per chain for 4 chains). By setting Turing to 3000 iterations it also saved 12,000 draws. Adaptation is 1,000 draws in both. This effects overall time, but not ess per second.
+Back in Julia, we read the R output file and compare it with the Turing model metrics. Here, Turing ran 3000 iterations on 4 chains to make it comparable. JAGS saved 12,000 draws (3,000 per chain for 4 chains). By setting Turing to 3000 iterations it also saved 12,000 draws. Adaptation is 1,000 draws in both. This effects overall time, but not ess per second.
 
 ```{julia}
 #| output: false
