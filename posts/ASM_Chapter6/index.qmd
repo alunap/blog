@@ -117,7 +117,7 @@ The book then uses the canned t.test function. In Julia, HypothesisTests.jl prov
 
 ### 6.2.5 Bayesian analysis
 
-Since Turing is an HMC sampler we will refer to the Stan section for model code comparison, but the output is shown for JAGS in the book. As before, we use the Stan code's prior of half-Cauchy for the standard deviation. Turing uses 1000 burning, so 2000 saved with 4 chains should match the number saved in JAGS.
+Since Turing is an HMC sampler we will refer to the Stan section for model code comparison, but the output is shown for JAGS in the book. As before, we use the Stan code's prior of half-Cauchy for the standard deviation. Turing uses 1000 burn-in, so 2000 saved with 4 chains should match the number saved in JAGS.
 
 ```{julia}
 #| output: false
@@ -455,7 +455,7 @@ mcmcresult = compare_model_efficiency(model_turing35, n_chains, params_to_track,
 println(mcmcresult)
 ```
 
-The Turing model is significantly faster, which is as expected. As the model becomes more complex, and more samples are saved, the discrepancy becomes greater, it seems.
+The Turing model is much faster, which is as expected. As the model becomes more complex, and more samples are saved, the discrepancy becomes greater, it seems. This isn't the fastest it could be, because I use the `:=` syntax to store delta; this calculates it during the sampling run and stores the results immediately in the chain, which is convenient. This is a simple calculation so not costly, but better is to use `return delta = μ2 - μ1`. This is not run during sampling, but only afterwards when you run `generate_quantities(chains)`.
 
 ::: {.callout-note}
 In the Julia code I do not use GPU acceleration, but Turing.jl does support it. Since I'm on Apple Silicon, I could use Metal acceleration for certain computations (CUDA is also supported), which might further improve performance. I wouldn't bother in this case, but if the dataset is > 100,000 or if it is a high-dimensional matrix model (spatial models, GLMMs, etc), I would experiment with hardware acceleration. Matrix multiplications scale significantly faster on GPU cores.
