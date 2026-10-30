@@ -59,7 +59,7 @@ x = vcat(zeros(Int, n1), ones(Int, n2))
 @rget y
 ```
 
-As Kéry and Kellner describe, the way we simulate the data here is corresponds to means parameterization. The variables y1 and y2 are built with their own means, rather than the mean for y1 and the difference for y2.
+As Kéry and Kellner describe, the way we simulate the data here corresponds to means parameterization. The variables y1 and y2 are built with their own means, rather than the mean for y1 and the difference for y2.
 
 #### An aside on rep()
 
@@ -435,7 +435,7 @@ jags_metrics$mean_ess_s <- jags_metrics$mean_ess / elapsed
 write.csv(jags_metrics, "jags_mcmc6_metrics.csv", row.names = FALSE)
 ```
 
-Back in Julia, we read the R output file and compare it with the Turing model metrics. Here, Turing ran 5000 iterations on 4 chains to make it comparable. JAGS saved 20,000 draws (5,000 per chain for 4 chains, plus 1,000 adaptation). By setting Turing to 5000 iterations it also saved 20,000 draws. This effects overall time, but not ess per second.
+Back in Julia, we read the R output file and compare it with the Turing model metrics. Here, Turing ran 5000 iterations on 4 chains to make it comparable. JAGS saved 12,000 draws (3,000 per chain for 4 chains). By setting Turing to 3000 iterations it also saved 12,000 draws. Adaptation is 1,000 draws in both. This effects overall time, but not ess per second.
 
 ```{julia}
 #| output: false
