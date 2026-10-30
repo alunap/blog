@@ -68,7 +68,7 @@ In R, the `rep()` function is used to replicate the values in a vector. For exam
 In the case we have here, where we are replicating 0s and 1s, the approach using `vcat(zeros(Int, n1), ones(Int, n2))` is straightforward and efficient.
 For more general cases, we can use fill, like this:
 
-```{{{julia}}
+```{{julia}}
 n1 = 3
 n2 = 2
 x = vcat(fill(0, n1), fill(1, n2))
@@ -80,7 +80,7 @@ x_group = vcat(fill("Control", n1), fill("Treatment", n2))
 
 To replicate rep's ability to take a vector of values and repeat each according to a vector of counts, we can do the following:
 
-```{{{julia}}
+```{{julia}}
 # General R-style rep function in 1 line
 rep(vals, counts) = reduce(vcat, fill.(vals, counts))
 
