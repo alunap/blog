@@ -5,13 +5,13 @@ using Turing, FlexiChains, MCMCDiagnosticTools, DataFrames, Statistics
 
 export compare_model_efficiency
 
-function compare_model_efficiency(model, n_chains, params_to_track, jags_metrics)
+function compare_model_efficiency(model, n_chains, params_to_track, jags_metrics, n_iter=5000)
     # ⚠️ JIT warm-up — CRITICAL. Run a tiny throwaway chain first, otherwise
     # compilation time destroys Turing's numbers.
     sample(model, NUTS(), 10; progress=false)
 
     # Time the real run (NUTS warmup/adaptation included, matching the JAGS timing)
-    elapsed = @elapsed chn = sample(model, NUTS(), MCMCThreads(), 5000, n_chains; progress=false)
+    elapsed = @elapsed chn = sample(model, NUTS(), MCMCThreads(), n_iter, n_chains; progress=false)
 
     # Per-parameter ESS, restricted to the SAME parameters monitored in JAGS
     common = params_to_track

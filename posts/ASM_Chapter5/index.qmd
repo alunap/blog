@@ -132,7 +132,7 @@ using Turing, FlexiChains, MCMCDiagnosticTools
 
   # Likelihood
     μ = @. α + β * x
-    y ~ product_distribution(Normal.(μ, σ))
+    y ~ arraydist(Normal.(μ, σ))
 end
 
 n_chains = 4
@@ -320,7 +320,7 @@ diy_est = [
 
 Once again we have a close match with the R DIY-MLE output
 
-## Efficiency Comparison
+# Efficiency Comparison
 
 In the last section of each chapter I compare the efficiency of the HMC/NUTS model in Julia with the JAGs model in R. All run on a MacBook Pro with M5 Pro chip, 24GB RAM.
 
@@ -368,7 +368,7 @@ using CSV
 
 params_to_track = ["α", "β", "σ"]
 jags_metrics = CSV.read("../../files/jags_mcmc5_metrics.csv", DataFrame)
-mcmcresult = compare_model_efficiency(model, n_chains, params_to_track, jags_metrics)
+mcmcresult = compare_model_efficiency(model, n_chains, params_to_track, jags_metrics, 5000)
 ```
 
 ```{julia}
@@ -377,7 +377,7 @@ println(mcmcresult)
 
 The Turing model is significantly faster, which is as expected. In jagsUI, `parallel=TRUE` starts up multiple R processes to run the chains in parallel, which adds some overhead. Turing uses threads within a single Julia process, which is more efficient. This effects the wallclock figure. The key metric to focus on is ESS per second, which accounts for both sampling efficiency and computational time. A mean of around 8,000 effective sample size should be enough for estimating fine tail behaviour. ~1000 ESS is probably good enough for general parameter estimation.
 
-In the Julia code I do not use GPU acceleration, but Turing.jl does support it. Since I'm on Apple Silicon, I could use Metal acceleration for certain computations (CUDA is also supported), which might further improve performance. I wouldn't bother in this case, but if the dataset is > 100,000 or if it is a high-dimensional matrix model (spatial models, GLMMs, etc), I would experiments with hardware acceleration. Matrix multiplications scale significantly faster on GPU cores.
+In the Julia code I do not use GPU acceleration, but Turing.jl does support it. Since I'm on Apple Silicon, I could use Metal acceleration for certain computations (CUDA is also supported), which might further improve performance. I wouldn't bother in this case, but if the dataset is > 100,000 or if it is a high-dimensional matrix model (spatial models, GLMMs, etc), I would experiment with hardware acceleration. Matrix multiplications scale significantly faster on GPU cores.
 
 Let's see a plot.
 
