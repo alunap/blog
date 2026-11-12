@@ -1,0 +1,282 @@
+---
+title: "ASM Chapter 7"
+author: "Dr Alun ap Rhisiart"
+date: "2026-11-12"
+categories: [code, julia, statistics, asm, ecology]
+execute:
+  echo: true
+  warning: false
+  output: true
+engine: julia
+---
+
+# ASM Chapter 7
+
+## 7.2 Fixed-Effects Models
+
+Chapter 7 of Applied Statistical Modelling for Ecologists by Kéry and Kellner focuses on fixed-effects and random-effects models, providing practical examples and guidance for ecological data analysis for one-way ANOVA. Like the last chapter, this features two models, and we will translate each into Julia.
+
+### 7.2.1 Generating the data
+
+As in previous chapters, we drop into R to generate the data so that it matches the examples in the book. However, first, I want to see how it would be done in Julia. The simulated data here represent snout-to-vent (SVL) lengths of 10 smooth snakes from each of five populations.
+
+```{julia}
+using Random, Distributions, DataFrames, Statistics, CategoricalArrays
+Random.seed!(72)
+nPops = 5
+nSample = 10
+pop_means = [50, 40, 45, 55, 60]
+σ = 5
+
+n = nPops * nSample
+ε = rand(Normal(0, σ), n)
+pop = repeat(1:5, inner=nSample)
+means = repeat(pop_means, inner=nSample)
+X = hcat([pop .== i for i in 1:5]...) # This generates a design matrix encoded efficiently as a bit-matrix
+y = X * pop_means .+ ε
+```
+
+Now let's generate the data in R to match the book's example. Note in this case that 'pop' is treated as a factor (strings), but Turing needs integers, and nSample gets returned as a float, but we need an integer. So I use the values created above instead of `rget` the data from R.
+
+```{julia}
+#| output: false
+using RCall, DataFrames
+
+R"""
+set.seed(72)
+nPops <- 5
+nSample <- 10
+pop.means <- c(50, 40, 45, 55, 60)
+sigma <- 5
+
+n <- nPops * nSample
+eps <- rnorm(n, 0, sigma)
+pop <- factor(rep(1:5, rep(nSample, nPops)))
+means <- rep(pop.means, rep(nSample, nPops))
+X <- as.matrix(model.matrix(~ pop - 1))
+y <- as.numeric(X %*% as.matrix(pop.means) + eps)
+"""
+@rget y
+```
+
+### 7.2.2 Likelihood analysis
+
+The book shows the code for effects parameterization, but the output for means only. In R pop is a factor. We need to use CategoricalArrays.jl in Julia to handle it similarly.
+
+```{julia}
+using Distributions, GLM, DataFramesMeta
+
+# means parameterisation
+df = DataFrame(y=y, pop=categorical(pop))
+model = lm(@formula(y ~ -1 + pop), df)
+```
+
+### 7.2.5 Bayesian analysis with Turing
+
+Heretofore I have not used loops for the likelihood, as it is generally not necessary. In this case I show that you can translate the R code in a way that mirrors the R code more closely. In general you don't need to do this, but if you plan to use predict() later (eg for a Prior Predictive Check), then that function can struggle with vectorised likelihoods.
+
+```{julia}
+#| output: false
+
+using Turing
+
+@model function fixed_effects(y, pop, nPops)
+    # Parameters and Priors
+    alpha ~ filldist(Normal(0, 100), nPops)  
+    sigma ~ truncated(Cauchy(0, 10), 0, Inf) 
+    
+    # Likelihood: Use a for loop to allow predict() to simulate missing data
+    for i in eachindex(y)
+        y[i] ~ Normal(alpha[pop[i]], sigma)
+    end
+    
+    # Generated Quantities
+    effe2 = alpha[2] - alpha[1]
+    effe3 = alpha[3] - alpha[1]
+    effe4 = alpha[4] - alpha[1]
+    effe5 = alpha[5] - alpha[1]
+    
+    test1 = (effe2 + effe3) - (effe4 + effe5)
+    test2 = effe5 - 2 * effe4
+    
+    return (; effe2, effe3, effe4, effe5, test1, test2)
+end
+
+model = fixed_effects(y, pop, nPops)
+chain = sample(model, NUTS(), MCMCThreads(), 1000, 4; progress=false)
+```
+```{julia}
+using FlexiChains, MCMCDiagnosticTools
+
+summarystats(chain)
+```
+
+Unlike the Stan example, here we have 'return'ed the generated quantities, so they are available in the MCMC chain, but they are not included in the above summary, because they are not calculated during the MCMC sampling itself. Remember you can use `:=` instead of `=` plus `return` to calculate during the run if it is not too expensive.
+
+```{julia}
+using DataFrames
+using Statistics
+
+gen_quants = generated_quantities(model, chain)
+
+# Flatten the iterations x chains matrix into a 1D vector of NamedTuples, 
+# then convert it directly into a DataFrame of raw samples.
+df_samples = DataFrame(vec(gen_quants))
+
+# Build the summary table 
+summary_table = DataFrame(
+    Parameter = names(df_samples),
+    Mean = mean.(eachcol(df_samples)),
+    SD = std.(eachcol(df_samples)),
+    Lower_2_5 = [quantile(col, 0.025) for col in eachcol(df_samples)],
+    Median = [quantile(col, 0.5) for col in eachcol(df_samples)],
+    Upper_97_5 = [quantile(col, 0.975) for col in eachcol(df_samples)]
+)
+print(summary_table)
+```
+
+And check trace plots.
+
+```{julia}
+using StatsPlots
+plot(chain)
+```
+
+### 7.2.6 DIY Maximum Likelihood Estimates
+
+There are a couple of differences to keep in mind in using Julia rather than R. 
+
+* Matrix Multiplication: In R, you would use `%*%` to multiply $X$ and α. In Julia, the standard `*` operator performs true matrix multiplication automatically when the left operand is a Matrix and the right is a Vector.
+* Preventing Domain Errors: The line `if σ <= 0.0 return Inf end` is a critical Julia optimization pattern. Unlike R's `optim()` which can sometimes suppress internal warnings, Distributions.jl will throw a hard error if you try to instantiate a Normal distribution with a negative standard deviation. Returning Inf cleanly tells Optim.jl to move away from that parameter space.
+* Anonymous Functions for Optimizers: R's optim allows you to pass additional data arguments (like y and X) via the ... argument. Optim.jl strictly expects a function of a single variable (the parameter vector). The syntax `p -> NLL(p, y, X)` creates a fast, on-the-fly closure that satisfies this requirement.
+
+```{julia}
+using Distributions
+using Optim
+using Statistics
+
+# Define the Negative Log-Likelihood (NLL) function
+function NLL(param, y, X)
+    α = param[1:5]
+    σ = param[6]
+    
+    # The optimizer will sometimes test negative values for sigma.
+    # Returning Inf acts as a hard boundary to prevent domain errors.
+    if σ <= 0.0
+        return Inf
+    end
+    
+    # Matrix multiplication: X (n x 5) * alpha (5 x 1) = mu (n x 1)
+    μ = X * α
+    
+    # Calculate the negative sum of the log-likelihoods
+    return -sum(logpdf.(Normal.(μ, σ), y))
+end
+
+# Build the design matrix (X)
+# This creates an n x 5 matrix of zeros, then places a 1.0 in the column 
+# corresponding to the population index for each observation.
+n = length(y)
+X = zeros(Float64, n, 5)
+for i in 1:n
+    X[i, pop[i]] = 1.0
+end
+
+# Set initial values for the optimizer
+# A good starting point is the global mean of y for the alphas, and the global standard deviation for sigma
+init_param = [fill(mean(y), 5); std(y)]
+
+# Run the optimizer
+# We use an anonymous function (p -> NLL(p, y, X)) to pass the data along with the parameters
+result = optimize(p -> NLL(p, y, X), init_param, NelderMead())
+
+# Extract the MLE estimates
+mle_estimates = Optim.minimizer(result)
+
+round.(mle_estimates, digits=3)
+```
+
+## 7.3 Random Effects
+
+The main point of this chapter is highlighting the difference between fixed effects and random effects models in the context of hierarchical data. So let's get into it.
+
+* Fixed effects (β parameters): These are the parameters we treat as constant across the population (or the specific contrasts we care about). We put priors directly on them. They represent the "average" or "overall" effect (e.g., global intercept, slope of a covariate like year or habitat).
+* Random effects (u or α parameters): These are group-specific deviations (e.g., site-specific intercepts, year-specific intercepts). We model them as coming from a common probability distribution (usually Normal(0, σ_group)), with hyperparameters (mean μ_group, usually 0 after centering, and variance σ_group²) that are themselves estimated. This induces partial pooling / shrinkage.
+
+This is the key Bayesian hierarchical insight: random effects are parameters with their own priors that are estimated from the data, allowing us to borrow strength across groups while quantifying group-level variation. Random effects 'soak up' variance that would otherwise inflate the residual error, leading to more accurate estimates of both group-level and overall effects. Fixed effects, on the other hand, are treated as constant across groups and capture the overall mean trends in the data.
+
+In code, we can see the difference in the parameters.
+
+Fixed effects will be coded like `β ~ Normal(0, 10)` while random effects will be coded like `α[group] ~ Normal(0, σ_group)`, with a hyperprior on the group-level standard deviation, e.g., `σ_group ~ Exponential(1)`. The parameters of the distribution are not fixed quantities, they are defined on a separate line of code and shared.
+
+### 7.3.1 Data generation
+
+In Julia we would create the data as follows.
+```{julia}
+#| output: false
+using Distributions, CategoricalArrays
+
+nPops = 10
+nSample = 12
+n = nPops * nSample
+pop_grand_mean = 50
+pop_sd = 3
+pop_means = rand(Normal(pop_grand_mean, pop_sd), nPops)
+σ = 5
+ε = rand(Normal(0, σ), n)
+pop = repeat(1:nPops, inner=nSample)
+pop = CategoricalArray(pop)
+Xmat = hcat([pop .== i for i in 1:nPops]...)
+
+y = Xmat * pop_means + ε
+```
+
+The R code to generate the data is:
+
+```{julia}
+#| output: false
+R"""
+set.seed(73)
+nPops <- 10
+nSample <- 12
+n <- nPops * nSample
+pop.grand.mean <- 50
+pop.sd <- 3
+pop.means <- rnorm(n=nPops, mean=pop.grand.mean, sd=pop.sd)
+sigma <- 5
+eps <- rnorm(n=n, mean=0, sd=sigma)
+pop <- factor(rep(1:nPops, rep(nSample, nPops)))
+Xmat <- as.matrix(model.matrix(~ pop -1))
+y <- as.numeric(Xmat %*% as.matrix(pop.means) + eps)
+"""
+@rget y
+```
+
+### 7.3.2 Likelihood analysis with canned functions
+
+The julia equivalent of lme4 is MixedModels.jl. See <https://juliastats.org/MixedModels.jl/dev/for_r_users/> for a comparison with R.
+
+```{julia}
+#| label: mixed-model-fit
+using MixedModels, DataFrames
+
+df = DataFrame(y=y, pop=pop)
+form = @formula(y ~ 1 + (1 | pop))
+model = fit(MixedModel,form, df)
+print(model)
+```
+
+This is almost exactly matching glmmTMB output. We can also try REML.
+
+```{julia}
+model_reml = fit(MixedModel, form, df, REML=true)
+print(model_reml)
+```
+
+### 7.3.5 Bayesian analysis with Turing
+
+```{julia}
+
+```
+
+### 7.3.6 DIY maximum likelihood estimates
