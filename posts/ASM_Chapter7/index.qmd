@@ -203,6 +203,7 @@ Fixed effects will be coded like `β ~ Normal(0, 10)` while random effects will 
 ### 7.3.1 Data generation
 
 In Julia we would create the data as follows.
+
 ```{julia}
 #| output: false
 using Distributions, CategoricalArrays
@@ -232,14 +233,14 @@ nSample <- 12
 n <- nPops * nSample
 pop.grand.mean <- 50
 pop.sd <- 3
-pop.means <- rnorm(n=nPops, mean=pop.grand.mean, sd=pop.sd)
+pop_means <- rnorm(n=nPops, mean=pop.grand.mean, sd=pop.sd)
 sigma <- 5
 eps <- rnorm(n=n, mean=0, sd=sigma)
 pop <- factor(rep(1:nPops, rep(nSample, nPops)))
 Xmat <- as.matrix(model.matrix(~ pop -1))
-y <- as.numeric(Xmat %*% as.matrix(pop.means) + eps)
+y <- as.numeric(Xmat %*% as.matrix(pop_means) + eps)
 """
-@rget y
+@rget y pop_means
 ```
 
 ### 7.3.2 Likelihood analysis with canned functions
