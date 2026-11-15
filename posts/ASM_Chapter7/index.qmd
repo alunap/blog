@@ -103,7 +103,7 @@ using Turing
 end
 
 model = fixed_effects(y, pop, nPops)
-chain_fe = sample(model, NUTS(), MCMCThreads(), 1000, 4; progress=false)
+chain_fe = sample(model, NUTS(), MCMCThreads(), 3000, 4; progress=false)
 ```
 ```{julia}
 using FlexiChains, MCMCDiagnosticTools
@@ -293,7 +293,7 @@ Because `effe` is a vector in Stan rather than separate scalars, returning `Name
 end
 
 random_model = random_effects(y, pop, nPops)
-chains_re = sample(random_model, NUTS(0.95), MCMCThreads(), 2000, 4; progress=false)
+chains_re = sample(random_model, NUTS(0.95), MCMCThreads(), 3000, 4; progress=false)
 ```
 
 ```{julia}
@@ -416,7 +416,9 @@ axislegend(ax75, position = :rb)
 fig75
 ```
 
-This *doesn't* match the figure in the book that well, but I think that is because when they generated the code for figure 7.5 they reran the fixed effect model for 10 populations (since they clearly show them), and the means are not the same as what is published. I'll leave it as it is, since the main point is showing how to make such a graph in Julia, and the output from each model does match what is shown in the book pretty well.
+This *doesn't* match the figure in the book that well, but I think that is because when they generated the code for figure 7.5 they reran the fixed effect model for 10 populations (since they clearly show them), and the means are not the same as what is published. The means for the five populations in the fixed-effects model were for data generated with a different seed than the one used for the 10-population model, so it is expected that they won't match well.
+
+I'll leave it as it is, since the main point is showing how to make such a graph in Julia, and the output from each model separately does match what is shown in the book pretty well.
 
 ### 7.3.6 DIY maximum likelihood estimates
 
