@@ -111,7 +111,7 @@ using FlexiChains, MCMCDiagnosticTools
 summarystats(chain_fe)
 ```
 
-Unlike the Stan example, here we have 'return'ed the generated quantities, so they are available in the MCMC chain, but they are not included in the above summary, because they are not calculated during the MCMC sampling itself. Remember you can use `:=` instead of `=` plus `return` to calculate during the run if it is not too expensive. Since I need to get these generated quantities for the fixed effects model too, I'll put it in a reusable function.
+Unlike the Stan example, here we have 'return'ed the generated quantities, so they are available in the MCMC chain, but they are not included in the above summary, because they are not calculated during the MCMC sampling itself. Remember you can use `:=` instead of `=` plus `return` to calculate during the run if it is not too expensive. Since I need to get these generated quantities for the random-effects model too, I'll put it in a reusable function.
 
 ```{julia}
 using DataFrames
@@ -347,7 +347,27 @@ axislegend(ax74, position = :rt)
 fig74
 ```
 
-Figure 7.5 is a comparison of fixed- and random-effects estimates for the same dataset with the true population means. Note that the number of populations was changed from 5 to 10 in the code, but nPops was left at 10 from the code above. In the book they show comparisons of fixed and random for all 10 populations. Since I want the fixed-effects model output to match the book I have left it at 5.
+Figure 7.5 is a comparison of fixed- and random-effects estimates for the same dataset with the true population means. Note that the number of populations was changed from 5 to 10 in the code, but nPops was left at 10 from the code above. In the book they show comparisons of fixed and random for all 10 populations. Since I want the fixed-effects model output to match the book I have left it at 5. The code in the github repository shows that before generating the figure the fixed-effects model is run on the second set of data.
+
+```{{r}}
+cat(file = "model73.3fix.txt", "
+model {
+# Priors (and also some derived quantities)
+for (i in 1:nPops){
+  # Prior for population means: no estimated hyperparameters now !
+  pop.mean[i] ~ dnorm(0, 0.0001)
+}
+residual.sd ~ dunif(0, 10) # Prior for residual sd
+residual.tau <- pow(residual.sd, -2)
+
+# 'Likelihood'
+for (i in 1:n) {
+  y[i] ~ dnorm(mu[i], residual.tau)
+  mu[i] <- pop.mean[pop[i]]
+}
+}
+")
+```
 
 ```{julia}
 # Extract posterior means and 95% CRIs for each population
