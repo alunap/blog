@@ -82,19 +82,19 @@ using Turing
 
 @model function fixed_effects(y, pop, nPops)
     # Parameters and Priors
-    alpha ~ filldist(Normal(0, 100), nPops)  
-    sigma ~ truncated(Cauchy(0, 10), 0, Inf) 
+    α ~ filldist(Normal(0, 100), nPops)  
+    σ ~ truncated(Cauchy(0, 10); lower = 0) 
     
     # Likelihood: Use a for loop to allow predict() to simulate missing data
     for i in eachindex(y)
-        y[i] ~ Normal(alpha[pop[i]], sigma)
+        y[i] ~ Normal(α[pop[i]], σ)
     end
     
     # Generated Quantities
-    effe2 = alpha[2] - alpha[1]
-    effe3 = alpha[3] - alpha[1]
-    effe4 = alpha[4] - alpha[1]
-    effe5 = alpha[5] - alpha[1]
+    effe2 = α[2] - α[1]
+    effe3 = α[3] - α[1]
+    effe4 = α[4] - α[1]
+    effe5 = α[5] - α[1]
     
     test1 = (effe2 + effe3) - (effe4 + effe5)
     test2 = effe5 - 2 * effe4
@@ -103,43 +103,34 @@ using Turing
 end
 
 model = fixed_effects(y, pop, nPops)
-chain = sample(model, NUTS(), MCMCThreads(), 1000, 4; progress=false)
+chain_fe = sample(model, NUTS(), MCMCThreads(), 1000, 4; progress=false)
 ```
 ```{julia}
 using FlexiChains, MCMCDiagnosticTools
 
-summarystats(chain)
+summarystats(chain_fe)
 ```
 
-Unlike the Stan example, here we have 'return'ed the generated quantities, so they are available in the MCMC chain, but they are not included in the above summary, because they are not calculated during the MCMC sampling itself. Remember you can use `:=` instead of `=` plus `return` to calculate during the run if it is not too expensive.
+Unlike the Stan example, here we have 'return'ed the generated quantities, so they are available in the MCMC chain, but they are not included in the above summary, because they are not calculated during the MCMC sampling itself. Remember you can use `:=` instead of `=` plus `return` to calculate during the run if it is not too expensive. Since I need to get these generated quantities for the fixed effects model too, I'll put it in a reusable function.
 
 ```{julia}
 using DataFrames
 using Statistics
 
-gen_quants = generated_quantities(model, chain)
-
-# Flatten the iterations x chains matrix into a 1D vector of NamedTuples, 
-# then convert it directly into a DataFrame of raw samples.
-df_samples = DataFrame(vec(gen_quants))
-
-# Build the summary table 
-summary_table = DataFrame(
-    Parameter = names(df_samples),
-    Mean = mean.(eachcol(df_samples)),
-    SD = std.(eachcol(df_samples)),
-    Lower_2_5 = [quantile(col, 0.025) for col in eachcol(df_samples)],
-    Median = [quantile(col, 0.5) for col in eachcol(df_samples)],
-    Upper_97_5 = [quantile(col, 0.975) for col in eachcol(df_samples)]
-)
-print(summary_table)
-```
-
-And check trace plots.
-
-```{julia}
-using StatsPlots
-plot(chain)
+function summarize_generated_quantities(model, chain)
+    gen_quants = generated_quantities(model, chain)
+    df_samples = DataFrame(vec(gen_quants))
+    summary_table = DataFrame(
+        Parameter = names(df_samples),
+        Mean = mean.(eachcol(df_samples)),
+        SD = std.(eachcol(df_samples)),
+        Lower_2_5 = [quantile(col, 0.025) for col in eachcol(df_samples)],
+        Median = [quantile(col, 0.5) for col in eachcol(df_samples)],
+        Upper_97_5 = [quantile(col, 0.975) for col in eachcol(df_samples)]
+    )
+    return summary_table
+end
+summarize_generated_quantities(model, chain_fe)
 ```
 
 ### 7.2.6 DIY Maximum Likelihood Estimates
@@ -225,7 +216,6 @@ pop_means = rand(Normal(pop_grand_mean, pop_sd), nPops)
 σ = 5
 ε = rand(Normal(0, σ), n)
 pop = repeat(1:nPops, inner=nSample)
-pop = CategoricalArray(pop)
 Xmat = hcat([pop .== i for i in 1:nPops]...)
 
 y = Xmat * pop_means + ε
@@ -254,13 +244,13 @@ y <- as.numeric(Xmat %*% as.matrix(pop.means) + eps)
 
 ### 7.3.2 Likelihood analysis with canned functions
 
-The julia equivalent of lme4 is MixedModels.jl. See <https://juliastats.org/MixedModels.jl/dev/for_r_users/> for a comparison with R.
+The julia equivalent of lme4 is MixedModels.jl. See <https://juliastats.org/MixedModels.jl/dev/for_r_users/> for a comparison with R. Note that in each case I convert pop to categorical form MLE, but keep it as integers for Turing.
 
 ```{julia}
 #| label: mixed-model-fit
 using MixedModels, DataFrames
 
-df = DataFrame(y=y, pop=pop)
+df = DataFrame(y=y, pop=categorical(pop))
 form = @formula(y ~ 1 + (1 | pop))
 model = fit(MixedModel,form, df)
 print(model)
@@ -275,8 +265,232 @@ print(model_reml)
 
 ### 7.3.5 Bayesian analysis with Turing
 
-```{julia}
+In the Stan code it uses truncated Cauchy for pop_means, but that causes issues with ForwardDiff in Julia, so we use a plain Normal instead. Since y is all positive, we get the same result. On first running I got a few divergent transitions, but changing the target acceptance rate in NUTS helped.
 
+Because `effe` is a vector in Stan rather than separate scalars, returning `NamedTuple(Symbol("effe[$i]") => effe[i] for i in 1:nPops)` unpacks effe[i] through effe[nPops] into individual scalar fields. The generated_quantities output then drops straight into the FlexiChain conversion code from the fixed-effects model without modification.
+
+```{julia}
+#| output: false
+
+@model function random_effects(y, pop, nPops)
+    # Hyperpriors and variance components (constant bounds are safe for ForwardDiff)
+    pop_grand_mean ~ truncated(Normal(0, 100), 0, Inf)
+    pop_sd ~ truncated(Cauchy(0, 10), 0, Inf)
+    residual_sd ~ truncated(Cauchy(0, 10), 0, Inf)
+
+    # Random population means (plain Normal avoids the ForwardDiff Inf-bound NaN bug)
+    pop_mean ~ filldist(Normal(pop_grand_mean, pop_sd), nPops)
+
+    # Likelihood
+    for i in eachindex(y)
+        y[i] ~ Normal(pop_mean[pop[i]], residual_sd)
+    end
+
+    # Generated quantities
+    effe = pop_mean .- pop_grand_mean
+    return NamedTuple(Symbol("effe[$i]") => effe[i] for i in 1:nPops)
+end
+
+random_model = random_effects(y, pop, nPops)
+chains_re = sample(random_model, NUTS(0.95), MCMCThreads(), 2000, 4; progress=false)
 ```
 
+```{julia}
+summarystats(chains_re)
+```
+
+And the generated effects
+
+```{julia}
+summarize_generated_quantities(random_model, chains_re)
+```
+
+Next we can look at Figure 7.4, the posterior distribution of the among-population SD of SVL. This is strongly right-skewed due to the small number of populations.
+
+```{julia}
+using CairoMakie
+
+# Extract posterior draws from the random-effects FlexiChain
+# (Named pop_sd_post so it doesn't shadow your true simulation variable `pop_sd`)
+pop_sd_post = vec(chains_re[@varname(pop_sd)])
+
+post_mean   = mean(pop_sd_post)
+post_median = median(pop_sd_post)
+
+fig74 = Figure(size = (800, 480))
+ax74 = Axis(fig74[1, 1],
+    title = "Posterior Distribution of Among-Population SD of SVL",
+    xlabel = "Among-population SD (cm)",
+    ylabel = "Density"
+)
+
+# Histogram + smooth density curve
+hist!(ax74, pop_sd_post,
+    bins = 60,
+    normalization = :pdf,
+    color = (:steelblue, 0.45),
+    strokecolor = :white,
+    strokewidth = 0.5
+)
+CairoMakie.density!(ax74, pop_sd_post, color = (:steelblue, 0.0), strokecolor = :steelblue, strokewidth = 2)
+
+# Reference lines comparing Truth, Posterior summaries, and MLE
+vlines!(ax74, [pop_sd],    color = :black,     linestyle = :dash,    linewidth = 2.5, label = "True value ($(pop_sd))")
+vlines!(ax74, [post_mean], color = :crimson,   linestyle = :solid,   linewidth = 2.5, label = "Posterior mean ($(round(post_mean, digits = 2)))")
+vlines!(ax74, [post_median], color = :royalblue, linestyle = :dashdot, linewidth = 2.5, label = "Posterior median ($(round(post_median, digits = 2)))")
+
+# Trim the extreme upper tail so the bulk of the distribution is readable
+xlims!(ax74, 0, quantile(pop_sd_post, 0.99))
+axislegend(ax74, position = :rt)
+
+fig74
+```
+
+Figure 7.5 is a comparison of fixed- and random-effects estimates for the same dataset with the true population means. Note that the number of populations was changed from 5 to 10 in the code, but nPops was left at 10 from the code above. In the book they show comparisons of fixed and random for all 10 populations. Since I want the fixed-effects model output to match the book I have left it at 5.
+
+```{julia}
+# Extract posterior means and 95% CRIs for each population
+fe_means = [mean(vec(chain_fe[@varname(α[i])])) for i in 1:5]
+fe_low   = [quantile(vec(chain_fe[@varname(α[i])]), 0.025) for i in 1:5]
+fe_high  = [quantile(vec(chain_fe[@varname(α[i])]), 0.975) for i in 1:5]
+
+re_means = [mean(vec(chains_re[@varname(pop_mean[i])])) for i in 1:nPops]
+re_low   = [quantile(vec(chains_re[@varname(pop_mean[i])]), 0.025) for i in 1:nPops]
+re_high  = [quantile(vec(chains_re[@varname(pop_mean[i])]), 0.975) for i in 1:nPops]
+
+grand_mean_est = mean(vec(chains_re[@varname(pop_grand_mean)]))
+
+# Build the comparison plot
+x = 1:nPops
+x_fe = 1:length(fe_means) # 1:5 for the fixed-effects subset
+offset = 0.12
+
+fig75 = Figure(size = (800, 500))
+ax75 = Axis(fig75[1, 1],
+    title = "Fixed vs. Random Effects Estimates of Mean SVL",
+    xlabel = "Population",
+    ylabel = "Mean SVL (cm)",
+    xticks = (x, string.(x))
+)
+
+# Grand mean reference line
+hlines!(ax75, [grand_mean_est],
+    color = :gray40,
+    linestyle = :dash,
+    linewidth = 1.5,
+    label = "Estimated grand mean ($(round(grand_mean_est, digits = 1)))"
+)
+
+# Optional: subtle vertical divider showing where the 5-population fixed-effects model ends
+vlines!(ax75, [5.5], color = :gray80, linestyle = :dot, linewidth = 1.5)
+
+# Fixed-effects estimates (populations 1–5 only)
+rangebars!(ax75, x_fe .- offset, fe_low, fe_high, color = :firebrick, linewidth = 2)
+scatter!(ax75, x_fe .- offset, fe_means,
+    color = :firebrick,
+    marker = :circle,
+    markersize = 11,
+    label = "Fixed effects (95% CRI)"
+)
+
+# Random-effects estimates (all 10 populations)
+rangebars!(ax75, x .+ offset, re_low, re_high, color = :royalblue, linewidth = 2)
+scatter!(ax75, x .+ offset, re_means,
+    color = :royalblue,
+    marker = :rect,
+    markersize = 11,
+    label = "Random effects (95% CRI)"
+)
+
+# True simulated population means (all 10 populations)
+scatter!(ax75, x, pop_means,
+    color = :black,
+    marker = :star5,
+    markersize = 14,
+    label = "True population mean"
+)
+
+axislegend(ax75, position = :rb)
+
+fig75
+```
+
+This *doesn't* match the figure in the book that well, but I think that is because when they generated the code for figure 7.5 they reran the fixed effect model for 10 populations (since they clearly show them), and the means are not the same as what is published. I'll leave it as it is, since the main point is showing how to make such a graph in Julia, and the output from each model does match what is shown in the book pretty well.
+
 ### 7.3.6 DIY maximum likelihood estimates
+
+We finish with the MLE estimate for random effects. There are some significant differences here.
+
+#### quadgk Return Signature
+  Unlike R's integrate(...)$value, QuadGK.quadgk returns a 2-tuple (integral, estimated_error). Unpacking with `L, _ = quadgk(...)` grabs the integral directly.
+  
+#### Extracting the Hessian
+
+  Wrapping the objective with `TwiceDifferentiable(NLL, inits)` instructs Optim.jl to use finite differences for both the BFGS gradient steps and Optim.hessian!(td, mle_raw) at the converged solution, matching R's optim(..., hessian = TRUE) behavior.
+
+```{julia}
+using QuadGK
+using LinearAlgebra
+
+function NLL(pars)
+    pop_grand_mean = pars[1]
+    pop_sd = exp(pars[2])
+    sigma = exp(pars[3])
+
+    LL = 0.0
+    for i in 1:nPops
+        # Subset data to population i
+        ysub = y[pop .== i]
+
+        # Numerically integrate out the random population effect r ~ Normal(0, pop_sd)
+        L, _ = quadgk(-Inf, Inf) do r
+            tot = 1.0
+            for yj in ysub
+                tot *= pdf(Normal(pop_grand_mean + r, sigma), yj)
+            end
+            tot *= pdf(Normal(0.0, pop_sd), r)
+            return tot
+        end
+
+        # Guard against log(<= 0) during BFGS line searches
+        if L <= 0.0
+            return Inf
+        end
+        LL += log(L)
+    end
+
+    return -LL
+end
+
+# Minimize NLL using BFGS (matching R's optim defaults)
+inits = [mean(y), 0.0, log(std(y))]
+td = TwiceDifferentiable(NLL, inits)
+out73_6 = optimize(td, inits, BFGS())
+
+# Extract MLEs, Hessian, SEs, and 95% CIs (replicating ASMbook::get_MLE)
+mle_raw = Optim.minimizer(out73_6)
+H = Optim.hessian!(td, mle_raw)
+se = sqrt.(diag(inv(H)))
+
+mle_table = DataFrame(
+    Parameter = ["pop.grand.mean", "log(pop.sd)", "log(residual.sd)"],
+    MLE = round.(mle_raw, digits = 4),
+    SE = round.(se, digits = 4),
+    LCL = round.(mle_raw .- 1.96 .* se, digits = 4),
+    UCL = round.(mle_raw .+ 1.96 .* se, digits = 4)
+)
+display(mle_table)
+```
+
+Back-transform the SDs to match diy_est
+
+```{julia}
+diy_est = [mle_raw[1], exp(mle_raw[2]), exp(mle_raw[3])]
+println("diy_est: ", round.(diy_est, digits = 4))
+```
+
+This all matches the R output pretty closely.
+
+## Summary
+
+I normally do a performance comparison, but this is a long chapter developing each model twice, once for fixed and once for random effects. So I think I will skip that part here.

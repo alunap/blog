@@ -19,3 +19,6 @@ format:
     css: styles.css
 execute: 
   freeze: auto
+engine: julia
+julia:
+  exeflags: ["--threads=auto"]
