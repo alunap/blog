@@ -389,7 +389,7 @@ pop: 5  62.2568     1.35859  45.82    &lt;1e-38    59.5205    64.9931
 </div>
 </div>
 </div>
-<p>Unlike the Stan example, here we have ’return’ed the generated quantities, so they are available in the MCMC chain, but they are not included in the above summary, because they are not calculated during the MCMC sampling itself. Remember you can use <code>:=</code> instead of <code>=</code> plus <code>return</code> to calculate during the run if it is not too expensive. Since I need to get these generated quantities for the fixed effects model too, I’ll put it in a reusable function.</p>
+<p>Unlike the Stan example, here we have ’return’ed the generated quantities, so they are available in the MCMC chain, but they are not included in the above summary, because they are not calculated during the MCMC sampling itself. Remember you can use <code>:=</code> instead of <code>=</code> plus <code>return</code> to calculate during the run if it is not too expensive. Since I need to get these generated quantities for the random-effects model too, I’ll put it in a reusable function.</p>
 <div id="12" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">DataFrames</span></span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Statistics</span></span>
